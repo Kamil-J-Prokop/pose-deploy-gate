@@ -1,5 +1,5 @@
-| Week (dates) | Target version (end of week) | Key deliverable | Status |
-|---|---|---|---|
+| Target version | Key deliverable | Status |
+|---|---|---|
 | 0.1.0 | Repository structure + working CI gates | Done - 14.03.2026 | 
 | 0.2.0 | Config schema + loader + validation | In progress |
 | 0.3.0 | Adapter interface + DummyAdapter | Planned |
