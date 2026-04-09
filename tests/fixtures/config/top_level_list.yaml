@@ -1,0 +1,3 @@
+# Intentionally invalid top-level YAML fixture for future validation coverage.
+- item-one
+- item-two

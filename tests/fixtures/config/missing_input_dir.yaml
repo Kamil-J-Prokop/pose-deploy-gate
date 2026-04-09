@@ -1,0 +1,7 @@
+version: 1
+
+data:
+  input_dir: "./does-not-exist-yet"
+
+adapter:
+  type: "dummy"
