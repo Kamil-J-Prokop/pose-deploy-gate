@@ -3,6 +3,11 @@ from pathlib import Path
 import pytest
 import yaml
 
+from pose_deploy_gate.config.exceptions import (
+    ConfigFileNotFoundError,
+    ConfigParseError,
+    ConfigValidationError,
+)
 from pose_deploy_gate.config.models import AppConfig
 from pose_deploy_gate.config.validators import (
     validate_app_config,
@@ -16,7 +21,7 @@ FIXTURES_DIR = Path("tests/fixtures/config")
 def test_validate_config_path_raises_for_missing_file(tmp_path: Path) -> None:
     missing_path = tmp_path / "missing_config.yaml"
 
-    with pytest.raises(ValueError, match="does not exist"):
+    with pytest.raises(ConfigFileNotFoundError, match="does not exist"):
         validate_config_path(missing_path)
 
 
@@ -24,7 +29,7 @@ def test_validate_raw_config_raises_for_empty_yaml() -> None:
     config_path = FIXTURES_DIR / "empty.yaml"
     raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
-    with pytest.raises(ValueError, match="is empty"):
+    with pytest.raises(ConfigParseError, match="is empty"):
         validate_raw_config(raw_config, config_path)
 
 
@@ -32,7 +37,7 @@ def test_validate_raw_config_raises_for_non_mapping_yaml() -> None:
     config_path = FIXTURES_DIR / "top_level_list.yaml"
     raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
-    with pytest.raises(ValueError, match="top-level mapping"):
+    with pytest.raises(ConfigParseError, match="top-level mapping"):
         validate_raw_config(raw_config, config_path)
 
 
@@ -41,7 +46,7 @@ def test_validate_app_config_raises_for_missing_input_dir() -> None:
     raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     config = AppConfig(**raw_config)
 
-    with pytest.raises(ValueError, match="input_dir does not exist"):
+    with pytest.raises(ConfigValidationError, match="input_dir does not exist"):
         validate_app_config(config, config_path)
 
 
@@ -80,5 +85,5 @@ def test_validate_config_path_raises_for_invalid_extension(tmp_path: Path) -> No
     config_path = tmp_path / "config.json"
     config_path.write_text("{}", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=".yaml or .yml"):
+    with pytest.raises(ConfigValidationError, match=".yaml or .yml"):
         validate_config_path(config_path)

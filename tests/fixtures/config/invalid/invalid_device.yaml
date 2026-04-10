@@ -1,0 +1,14 @@
+# Invalid config fixture skeleton for Commit #5.
+# Intended use:
+# - keep required structure valid
+# - set run.device to a value outside: cpu, cuda, auto
+version: 1
+
+run:
+  device: "tpu"
+
+data:
+  input_dir: "./data"
+
+adapter:
+  type: "dummy"

@@ -1,0 +1,7 @@
+# Intentionally malformed YAML fixture for Commit #5.
+version: 1
+data:
+  input_dir: "./data"
+adapter:
+  type: "dummy"
+  params: [unclosed
