@@ -14,6 +14,19 @@ Configs are loaded with `load_config(config_path)`.
 - Path values are parsed as `pathlib.Path` values.
 - `data.input_dir` must exist and must be a directory when the config is loaded.
 
+## CLI Usage
+
+Validate a config file from the command line:
+
+```bash
+uv run python -m pose_deploy_gate --config ./path/to/config.yaml
+```
+
+The command loads the YAML file, applies schema defaults, runs config
+validation, prints the resolved run settings, and exits with `0` when the
+config is valid. Config loading failures print an `ERROR:` message and exit
+with a non-zero code.
+
 ## Minimal Example
 
 Start from the minimal example when you only need the default run, output, and

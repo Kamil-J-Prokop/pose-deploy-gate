@@ -1,8 +1,8 @@
 | Target version | Key deliverable | Status |
 |---|---|---|
 | 0.1.0 | Repository structure + working CI gates | Done - 14.03.2026 | 
-| 0.2.0 | Config schema + loader + validation | In progress |
-| 0.3.0 | Adapter interface + DummyAdapter | Planned |
+| 0.2.0 | Config schema + loader + validation | Done - 10.04.2026 |
+| 0.3.0 | Adapter interface + DummyAdapter | In progress |
 | 0.4.0 | DataSource + deterministic file iteration | Planned |
 | 0.5.0 | Runner with warmup + timing capture | Planned |
 | 0.6.0 | MetricsEngine (latency + error rate) | Planned |

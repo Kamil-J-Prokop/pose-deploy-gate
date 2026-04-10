@@ -6,6 +6,8 @@ import argparse
 from pathlib import Path
 
 from pose_deploy_gate import __version__
+from pose_deploy_gate.config import load_config
+from pose_deploy_gate.config.exceptions import ConfigError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,6 +25,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--config",
+        type=Path,
+        help="Path to the YAML config file to validate.",
+    )
+    parser.add_argument(
         "--input",
         type=Path,
         help="Path to the input file or directory to validate.",
@@ -37,6 +44,22 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> int:
     """Execute the CLI logic based on the parsed arguments and return an exit code."""
+    if args.config is not None:
+        try:
+            config = load_config(args.config)
+        except ConfigError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+
+        print("PoseDeployGate config validation successful.")
+        print(f"Config path: {args.config.resolve()}")
+        print(f"Run name: {config.run.name}")
+        print(f"Input directory: {config.data.input_dir.resolve()}")
+        print(f"Adapter: {config.adapter.type}")
+        print(f"Output directory: {config.output.dir}")
+        print(f"Gates enabled: {config.gates.enabled}")
+        return 0
+
     if args.input is None:
         if args.strict:
             print("ERROR: --input is required when --strict is set.")

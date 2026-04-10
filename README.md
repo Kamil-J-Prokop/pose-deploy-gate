@@ -44,6 +44,7 @@ Run the CLI:
 
 ```bash
 uv run python -m pose_deploy_gate --version
+uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml
 uv run python -m pose_deploy_gate --input .
 ```
 
