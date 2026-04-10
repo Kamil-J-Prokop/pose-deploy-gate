@@ -30,6 +30,8 @@ The initial project skeleton is in place and includes:
 
 The current CLI validates basic input paths and package wiring.
 
+Config documentation is in [docs/config.md](docs/config.md).
+
 ## Quick start
 
 Clone the repository and install development dependencies:
