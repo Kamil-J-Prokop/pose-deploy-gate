@@ -1,0 +1,23 @@
+# Full config example for docs/config.md.
+# Replace "." with the directory that contains your evaluation inputs.
+version: 1
+
+run:
+  name: "example-run"
+  seed: 123
+  device: "cpu"
+
+data:
+  input_dir: "."
+  file_pattern: "*.jpg"
+  recursive: false
+
+adapter:
+  type: "dummy"
+  params: {}
+
+output:
+  dir: "./artifacts"
+
+gates:
+  enabled: false

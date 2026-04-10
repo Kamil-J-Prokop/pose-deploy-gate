@@ -1,0 +1,7 @@
+version: 1
+
+data:
+  input_dir: "./data"
+
+adapter:
+  type: "dummy"

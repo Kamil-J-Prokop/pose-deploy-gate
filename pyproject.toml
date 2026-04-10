@@ -1,10 +1,13 @@
 [project]
 name = "pose-deploy-gate"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deployment-focused validation tooling for body keypoint model comparison."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.0",
+    "pyyaml>=6.0"
+]
 
 [build-system]
 requires = ["hatchling"]

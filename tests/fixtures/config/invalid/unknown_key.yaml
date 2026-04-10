@@ -1,0 +1,12 @@
+# Invalid config fixture skeleton for Commit #5.
+# Intended use:
+# - exercise extra="forbid" on the pydantic models
+# - decide later whether this should be a top-level or nested unknown key test
+version: 1
+unexpected: true
+
+data:
+  input_dir: "./data"
+
+adapter:
+  type: "dummy"

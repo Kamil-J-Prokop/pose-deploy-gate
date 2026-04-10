@@ -18,17 +18,27 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ## Current status
 
-The initial project skeleton is in place and includes:
+Version `0.2.0` establishes the configuration foundation for the project.
+
+Implemented so far:
 
 - Python package using the `src/` layout
 - minimal CLI entry point
+- YAML-based configuration loading
+- strict config schema with defaults
+- config validation at path, parse, schema, and app levels
+- config-specific exception hierarchy
 - local quality gates via pre-commit
 - pre-push test execution
 - GitHub Actions CI workflow
 - Ruff linting and formatting
 - pytest test suite
 
-The current CLI validates basic input paths and package wiring.
+This milestone makes configuration a first-class subsystem and provides the base for the upcoming adapter, runner, and metrics work.
+
+Config documentation is in [docs/config.md](docs/config.md).
+
+Example configs are in [docs/examples](docs/examples).
 
 ## Quick start
 
@@ -42,6 +52,7 @@ Run the CLI:
 
 ```bash
 uv run python -m pose_deploy_gate --version
+uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml
 uv run python -m pose_deploy_gate --input .
 ```
 
@@ -81,7 +92,7 @@ pre-commit install --hook-type pre-push
 
 GitHub Actions runs on:
 
-- pushes to `main`
+- pushes to `main` and feature branches with name starting with `feat/`
 - pull requests
 
 CI currently verifies:
@@ -93,10 +104,12 @@ CI currently verifies:
 
 Planned next steps:
 
-- structured model adapter interface
-- metric definitions for deployment-oriented comparison
-- reproducible evaluation protocol
-- reporting layer for model selection decisions
+- adapter interface and dummy adapter
+- deterministic data source iteration
+- runner with warmup and timing capture
+- deployment-oriented metrics
+- output validation and gate evaluation
+- report generation and CI artifacts
 
 ## License
 

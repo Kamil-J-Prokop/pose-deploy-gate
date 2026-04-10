@@ -1,0 +1,8 @@
+# Invalid config fixture skeleton for Commit #5.
+# Intended use:
+# - omit one or more required fields so AppConfig validation fails
+# - keep the YAML syntactically valid so the failure is schema-related
+version: 1
+
+data:
+  input_dir: "./data"

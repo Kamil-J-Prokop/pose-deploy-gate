@@ -1,0 +1,9 @@
+# Minimal config example for docs/config.md.
+# Replace "." with the directory that contains your evaluation inputs.
+version: 1
+
+data:
+  input_dir: "."
+
+adapter:
+  type: "dummy"
