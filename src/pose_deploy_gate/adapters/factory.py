@@ -1,0 +1,1 @@
+"""Adapter creation from config"""

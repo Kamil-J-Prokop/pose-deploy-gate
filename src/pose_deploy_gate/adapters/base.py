@@ -1,0 +1,1 @@
+"""Abstract adapter interface"""
