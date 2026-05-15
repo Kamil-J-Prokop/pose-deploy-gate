@@ -30,8 +30,8 @@ class PosePrediction:
     """Normalized pose prediction emitted by an adapter."""
 
     keypoints: tuple[Keypoint, ...]
-    person_id: str | None = None
     confidence: float
+    person_id: str | None = None
 
 
 @dataclass(frozen=True)
