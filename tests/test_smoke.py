@@ -64,6 +64,33 @@ adapter:
     assert run(args) == 0
 
 
+def test_cli_config_path_initializes_dummy_adapter(tmp_path: Path, capsys) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+version: 1
+
+data:
+  input_dir: "{tmp_path}"
+
+adapter:
+  type: "dummy"
+""",
+        encoding="utf-8",
+    )
+    args = Namespace(
+        config=config_path,
+        input=None,
+        strict=False,
+    )
+
+    assert run(args) == 0
+
+    captured = capsys.readouterr()
+    assert "Adapter: dummy" in captured.out
+    assert "Adapter initialized: dummy" in captured.out
+
+
 def test_run_with_invalid_config_path(tmp_path: Path) -> None:
     args = Namespace(
         config=tmp_path / "missing.yaml",
