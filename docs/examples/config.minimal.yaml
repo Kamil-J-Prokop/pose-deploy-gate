@@ -1,4 +1,4 @@
-# Minimal config example for docs/config.md.
+# Minimal config example for docs/config.md and docs/adapters.md.
 # Replace "." with the directory that contains your evaluation inputs.
 version: 1
 

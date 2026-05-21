@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from pose_deploy_gate import __version__
+from pose_deploy_gate.adapters import AdapterError, create_adapter
 from pose_deploy_gate.config import load_config
 from pose_deploy_gate.config.exceptions import ConfigError
 
@@ -51,11 +52,18 @@ def run(args: argparse.Namespace) -> int:
             print(f"ERROR: {exc}")
             return 2
 
+        try:
+            adapter = create_adapter(config.adapter)
+        except AdapterError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+
         print("PoseDeployGate config validation successful.")
         print(f"Config path: {args.config.resolve()}")
         print(f"Run name: {config.run.name}")
         print(f"Input directory: {config.data.input_dir.resolve()}")
         print(f"Adapter: {config.adapter.type}")
+        print(f"Adapter initialized: {adapter.name}")
         print(f"Output directory: {config.output.dir}")
         print(f"Gates enabled: {config.gates.enabled}")
         return 0
