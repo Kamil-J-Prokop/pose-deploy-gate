@@ -18,7 +18,8 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ## Current status
 
-Version `0.2.0` establishes the configuration foundation for the project.
+Version `0.3.0` establishes the adapter interface and adds the deterministic
+`DummyAdapter`.
 
 Implemented so far:
 
@@ -33,10 +34,15 @@ Implemented so far:
 - GitHub Actions CI workflow
 - Ruff linting and formatting
 - pytest test suite
+- adapter interface via `PoseAdapter`
+- normalized adapter input/output types
+- deterministic built-in `DummyAdapter`
 
-This milestone makes configuration a first-class subsystem and provides the base for the upcoming adapter, runner, and metrics work.
+This milestone keeps the configuration foundation in place and adds the first
+normalized inference boundary for upcoming runner, metrics, and reporting work.
 
 Config documentation is in [docs/config.md](docs/config.md).
+Adapter documentation is in [docs/adapters.md](docs/adapters.md).
 
 Example configs are in [docs/examples](docs/examples).
 
@@ -102,9 +108,13 @@ CI currently verifies:
 
 ## Roadmap
 
+Implemented in `v0.3.0`:
+
+- adapter interface
+- deterministic dummy adapter
+
 Planned next steps:
 
-- adapter interface and dummy adapter
 - deterministic data source iteration
 - runner with warmup and timing capture
 - deployment-oriented metrics
