@@ -9,6 +9,7 @@ def test_run_without_input_no_strict() -> None:
         config=None,
         input=None,
         strict=False,
+        list_inputs=False,
     )
     assert run(args) == 0
 
@@ -18,6 +19,7 @@ def test_run_without_input_strict() -> None:
         config=None,
         input=None,
         strict=True,
+        list_inputs=False,
     )
     assert run(args) == 2
 
@@ -27,6 +29,7 @@ def test_run_with_existing_directory(tmp_path: Path) -> None:
         config=None,
         input=tmp_path,
         strict=False,
+        list_inputs=False,
     )
     assert run(args) == 0
 
@@ -37,18 +40,22 @@ def test_run_with_nonexistent_directory(tmp_path: Path) -> None:
         config=None,
         input=wrong_path,
         strict=False,
+        list_inputs=False,
     )
     assert run(args) == 1
 
 
 def test_run_with_valid_config(tmp_path: Path) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    (input_dir / "frame.jpg").write_text("frame", encoding="utf-8")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
 version: 1
 
 data:
-  input_dir: "{tmp_path}"
+  input_dir: "{input_dir}"
 
 adapter:
   type: "dummy"
@@ -59,19 +66,23 @@ adapter:
         config=config_path,
         input=None,
         strict=False,
+        list_inputs=False,
     )
 
     assert run(args) == 0
 
 
 def test_cli_config_path_initializes_dummy_adapter(tmp_path: Path, capsys) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    (input_dir / "frame.jpg").write_text("frame", encoding="utf-8")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
 version: 1
 
 data:
-  input_dir: "{tmp_path}"
+  input_dir: "{input_dir}"
 
 adapter:
   type: "dummy"
@@ -82,6 +93,7 @@ adapter:
         config=config_path,
         input=None,
         strict=False,
+        list_inputs=False,
     )
 
     assert run(args) == 0
@@ -91,11 +103,110 @@ adapter:
     assert "Adapter initialized: dummy" in captured.out
 
 
+def test_cli_config_reports_discovered_input_count(tmp_path: Path, capsys) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    (input_dir / "frame_001.jpg").write_text("a", encoding="utf-8")
+    (input_dir / "frame_002.jpg").write_text("b", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+version: 1
+
+data:
+  input_dir: "{input_dir}"
+
+adapter:
+  type: "dummy"
+""",
+        encoding="utf-8",
+    )
+    args = Namespace(
+        config=config_path,
+        input=None,
+        strict=False,
+        list_inputs=False,
+    )
+
+    assert run(args) == 0
+
+    captured = capsys.readouterr()
+    assert "Input files discovered: 2" in captured.out
+
+
+def test_cli_config_list_inputs_prints_files_in_deterministic_order(tmp_path: Path, capsys) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    nested_dir = input_dir / "nested"
+    nested_dir.mkdir()
+    (nested_dir / "b_frame.jpg").write_text("b", encoding="utf-8")
+    (input_dir / "a_frame.jpg").write_text("a", encoding="utf-8")
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+version: 1
+
+data:
+  input_dir: "{input_dir}"
+  recursive: true
+  file_pattern: "*.jpg"
+
+adapter:
+  type: "dummy"
+""",
+        encoding="utf-8",
+    )
+    args = Namespace(
+        config=config_path,
+        input=None,
+        strict=False,
+        list_inputs=True,
+    )
+
+    assert run(args) == 0
+
+    captured = capsys.readouterr()
+    assert "Input files:" in captured.out
+    assert "  001: a_frame.jpg" in captured.out
+    assert "  002: nested/b_frame.jpg" in captured.out
+
+
+def test_cli_config_returns_error_when_no_files_match(tmp_path: Path, capsys) -> None:
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+version: 1
+
+data:
+  input_dir: "{input_dir}"
+  file_pattern: "*.jpg"
+
+adapter:
+  type: "dummy"
+""",
+        encoding="utf-8",
+    )
+    args = Namespace(
+        config=config_path,
+        input=None,
+        strict=False,
+        list_inputs=False,
+    )
+
+    assert run(args) == 2
+
+    captured = capsys.readouterr()
+    assert "ERROR: No input files found" in captured.out
+
+
 def test_run_with_invalid_config_path(tmp_path: Path) -> None:
     args = Namespace(
         config=tmp_path / "missing.yaml",
         input=None,
         strict=False,
+        list_inputs=False,
     )
 
     assert run(args) == 2

@@ -9,6 +9,7 @@ from pose_deploy_gate import __version__
 from pose_deploy_gate.adapters import AdapterError, create_adapter
 from pose_deploy_gate.config import load_config
 from pose_deploy_gate.config.exceptions import ConfigError
+from pose_deploy_gate.data import DataSourceError, create_data_source
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,6 +41,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Fail if no --input is provided.",
     )
+    parser.add_argument(
+        "--list-inputs",
+        action="store_true",
+        help="List discovered input files when used with --config.",
+    )
     return parser
 
 
@@ -58,14 +64,29 @@ def run(args: argparse.Namespace) -> int:
             print(f"ERROR: {exc}")
             return 2
 
+        try:
+            data_source = create_data_source(config.data)
+            images = tuple(data_source.iter_images())
+        except DataSourceError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+
         print("PoseDeployGate config validation successful.")
         print(f"Config path: {args.config.resolve()}")
         print(f"Run name: {config.run.name}")
         print(f"Input directory: {config.data.input_dir.resolve()}")
+        print(f"Input files discovered: {len(images)}")
         print(f"Adapter: {config.adapter.type}")
         print(f"Adapter initialized: {adapter.name}")
         print(f"Output directory: {config.output.dir}")
         print(f"Gates enabled: {config.gates.enabled}")
+
+        if getattr(args, "list_inputs", False):
+            print("Input files:")
+            for index, image in enumerate(images, start=1):
+                relative_path = image.path.relative_to(config.data.input_dir).as_posix()
+                print(f"  {index:03d}: {relative_path}")
+
         return 0
 
     if args.input is None:
