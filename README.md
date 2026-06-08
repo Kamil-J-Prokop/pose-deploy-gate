@@ -18,8 +18,8 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ## Current status
 
-Version `0.3.0` establishes the adapter interface and adds the deterministic
-`DummyAdapter`.
+Version `0.4.0` adds deterministic data source iteration on top of the adapter
+interface and deterministic `DummyAdapter`.
 
 Implemented so far:
 
@@ -37,12 +37,14 @@ Implemented so far:
 - adapter interface via `PoseAdapter`
 - normalized adapter input/output types
 - deterministic built-in `DummyAdapter`
+- deterministic file discovery and iteration via `FileDataSource`
 
-This milestone keeps the configuration foundation in place and adds the first
-normalized inference boundary for upcoming runner, metrics, and reporting work.
+This milestone keeps the configuration foundation in place and adds a stable
+input iteration boundary for upcoming runner, metrics, and reporting work.
 
 Config documentation is in [docs/config.md](docs/config.md).
 Adapter documentation is in [docs/adapters.md](docs/adapters.md).
+Data source documentation is in [docs/data.md](docs/data.md).
 
 Example configs are in [docs/examples](docs/examples).
 
@@ -59,6 +61,7 @@ Run the CLI:
 ```bash
 uv run python -m pose_deploy_gate --version
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml
+uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml --list-inputs
 uv run python -m pose_deploy_gate --input .
 ```
 
@@ -108,14 +111,14 @@ CI currently verifies:
 
 ## Roadmap
 
-Implemented in `v0.3.0`:
+Implemented in `v0.4.0`:
 
 - adapter interface
 - deterministic dummy adapter
+- deterministic data source iteration
 
 Planned next steps:
 
-- deterministic data source iteration
 - runner with warmup and timing capture
 - deployment-oriented metrics
 - output validation and gate evaluation

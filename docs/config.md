@@ -22,10 +22,16 @@ Validate a config file from the command line:
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml
 ```
 
+Print the deterministic input list discovered from that config:
+
+```bash
+uv run python -m pose_deploy_gate --config ./path/to/config.yaml --list-inputs
+```
+
 The command loads the YAML file, applies schema defaults, runs config
-validation, prints the resolved run settings, and exits with `0` when the
-config is valid. Config loading failures print an `ERROR:` message and exit
-with a non-zero code.
+validation, discovers input files, prints the resolved run settings, and exits
+with `0` when the config is valid. Config loading failures and data source
+discovery failures print an `ERROR:` message and exit with a non-zero code.
 
 ## Minimal Example
 
@@ -74,6 +80,12 @@ The full example sets every currently supported section and field:
 | `data.file_pattern` | No | string | `*` | Must not be empty or whitespace. |
 | `data.recursive` | No | boolean | `false` | Enables recursive input discovery. |
 
+Data source iteration is deterministic:
+
+- discovery filters to files only
+- ordering is based on the relative POSIX path from `data.input_dir`
+- emitted `image_id` values are relative paths without the file suffix
+
 ### `adapter`
 
 | Field | Required | Type | Default | Notes |
@@ -111,3 +123,7 @@ empty `run.name`, empty `data.file_pattern`, and negative `run.seed`.
 
 - Minimal example: [config.minimal.yaml](examples/config.minimal.yaml)
 - Full example: [config.full.yaml](examples/config.full.yaml)
+- Recursive JPEG example: [config.recursive.yaml](examples/config.recursive.yaml)
+- JPEG-only example: [config.jpg-only.yaml](examples/config.jpg-only.yaml)
+
+Data source behavior is documented in [docs/data.md](data.md).
