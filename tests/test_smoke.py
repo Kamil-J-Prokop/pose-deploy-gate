@@ -45,17 +45,14 @@ def test_run_with_nonexistent_directory(tmp_path: Path) -> None:
     assert run(args) == 1
 
 
-def test_run_with_valid_config(tmp_path: Path) -> None:
-    input_dir = tmp_path / "inputs"
-    input_dir.mkdir()
-    (input_dir / "frame.jpg").write_text("frame", encoding="utf-8")
+def test_run_with_valid_config(tmp_path: Path, image_fixtures_dir: Path) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
 version: 1
 
 data:
-  input_dir: "{input_dir}"
+  input_dir: "{image_fixtures_dir}"
 
 adapter:
   type: "dummy"
@@ -72,17 +69,16 @@ adapter:
     assert run(args) == 0
 
 
-def test_cli_config_path_initializes_dummy_adapter(tmp_path: Path, capsys) -> None:
-    input_dir = tmp_path / "inputs"
-    input_dir.mkdir()
-    (input_dir / "frame.jpg").write_text("frame", encoding="utf-8")
+def test_cli_config_path_initializes_dummy_adapter(
+    tmp_path: Path, capsys, image_fixtures_dir: Path
+) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
 version: 1
 
 data:
-  input_dir: "{input_dir}"
+  input_dir: "{image_fixtures_dir}"
 
 adapter:
   type: "dummy"
@@ -103,18 +99,16 @@ adapter:
     assert "Adapter initialized: dummy" in captured.out
 
 
-def test_cli_config_reports_discovered_input_count(tmp_path: Path, capsys) -> None:
-    input_dir = tmp_path / "inputs"
-    input_dir.mkdir()
-    (input_dir / "frame_001.jpg").write_text("a", encoding="utf-8")
-    (input_dir / "frame_002.jpg").write_text("b", encoding="utf-8")
+def test_cli_config_reports_discovered_input_count(
+    tmp_path: Path, capsys, image_fixtures_dir: Path
+) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
 version: 1
 
 data:
-  input_dir: "{input_dir}"
+  input_dir: "{image_fixtures_dir}"
 
 adapter:
   type: "dummy"
@@ -134,20 +128,16 @@ adapter:
     assert "Input files discovered: 2" in captured.out
 
 
-def test_cli_config_list_inputs_prints_files_in_deterministic_order(tmp_path: Path, capsys) -> None:
-    input_dir = tmp_path / "inputs"
-    input_dir.mkdir()
-    nested_dir = input_dir / "nested"
-    nested_dir.mkdir()
-    (nested_dir / "b_frame.jpg").write_text("b", encoding="utf-8")
-    (input_dir / "a_frame.jpg").write_text("a", encoding="utf-8")
+def test_cli_config_list_inputs_prints_files_in_deterministic_order(
+    tmp_path: Path, capsys, image_fixtures_dir: Path
+) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"""
 version: 1
 
 data:
-  input_dir: "{input_dir}"
+  input_dir: "{image_fixtures_dir}"
   recursive: true
   file_pattern: "*.jpg"
 
@@ -167,8 +157,9 @@ adapter:
 
     captured = capsys.readouterr()
     assert "Input files:" in captured.out
-    assert "  001: a_frame.jpg" in captured.out
-    assert "  002: nested/b_frame.jpg" in captured.out
+    assert "  001: a.jpg" in captured.out
+    assert "  002: b.jpg" in captured.out
+    assert "  003: nested/c.jpg" in captured.out
 
 
 def test_cli_config_returns_error_when_no_files_match(tmp_path: Path, capsys) -> None:
