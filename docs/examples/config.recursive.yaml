@@ -1,0 +1,11 @@
+# Recursive JPEG discovery example for docs/data.md.
+# Replace "./images" with the directory that contains your evaluation inputs.
+version: 1
+
+data:
+  input_dir: "./images"
+  file_pattern: "*.jpg"
+  recursive: true
+
+adapter:
+  type: "dummy"
