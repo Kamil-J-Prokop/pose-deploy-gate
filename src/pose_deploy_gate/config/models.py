@@ -33,6 +33,11 @@ class GatesConfig(StrictBaseModel):
     enabled: bool = False
 
 
+class RunnerConfig(StrictBaseModel):
+    warmup_iterations: int = Field(default=3, ge=0)
+    continue_on_error: bool = False
+
+
 class AppConfig(StrictBaseModel):
     version: Literal[1]
 
@@ -41,3 +46,4 @@ class AppConfig(StrictBaseModel):
     adapter: AdapterConfig
     output: OutputConfig = Field(default_factory=OutputConfig)
     gates: GatesConfig = Field(default_factory=GatesConfig)
+    runner: RunnerConfig = Field(default_factory=RunnerConfig)
