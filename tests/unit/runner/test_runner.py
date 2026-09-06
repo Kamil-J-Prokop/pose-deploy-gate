@@ -44,7 +44,7 @@ def _image(image_id: str) -> ImageInput:
     return ImageInput(image_id=image_id, path=Path(f"/tmp/{image_id}.jpg"))
 
 
-def test_runner_runs_adapter_for_each_image() -> None:
+def test_runner_warmup_calls_adapter_before_measured_predictions() -> None:
     images = (_image("image-001"), _image("image-002"), _image("image-003"))
     adapter = FakeAdapter()
     runner = Runner(
@@ -63,6 +63,88 @@ def test_runner_runs_adapter_for_each_image() -> None:
         images[1],
         images[2],
     ]
+
+
+def test_runner_zero_warmup_skips_warmup() -> None:
+    images = (_image("image-001"), _image("image-002"))
+    adapter = FakeAdapter()
+    runner = Runner(
+        adapter=adapter,
+        data_source=FakeDataSource(images),
+        warmup_iterations=0,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+
+    assert adapter.images_seen == list(images)
+    assert result.warmup.iterations == 0
+    assert result.warmup.total_time_ns == 0
+
+
+def test_runner_warmup_uses_first_image() -> None:
+    images = (_image("image-003"), _image("image-001"), _image("image-002"))
+    adapter = FakeAdapter()
+    runner = Runner(
+        adapter=adapter,
+        data_source=FakeDataSource(images),
+        warmup_iterations=2,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    runner.run()
+
+    assert adapter.images_seen[:2] == [images[0], images[0]]
+
+
+def test_runner_records_warmup_iterations() -> None:
+    image = _image("image-001")
+    runner = Runner(
+        adapter=FakeAdapter(),
+        data_source=FakeDataSource((image,)),
+        warmup_iterations=3,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+    empty_runner = Runner(
+        adapter=FakeAdapter(),
+        data_source=FakeDataSource(()),
+        warmup_iterations=3,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+    empty_result = empty_runner.run()
+
+    assert result.warmup.iterations == 3
+    assert empty_result.warmup.iterations == 0
+
+
+def test_runner_records_warmup_total_time() -> None:
+    runner = Runner(
+        adapter=FakeAdapter(),
+        data_source=FakeDataSource((_image("image-001"),)),
+        warmup_iterations=3,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+
+    assert result.warmup.total_time_ns == 100
+
+
+def test_runner_does_not_include_warmup_in_measured_inference_time() -> None:
+    images = (_image("image-001"), _image("image-002"))
+    runner = Runner(
+        adapter=FakeAdapter(),
+        data_source=FakeDataSource(images),
+        warmup_iterations=3,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+
+    assert result.warmup.total_time_ns == 100
+    assert result.measured_inference_time_ns == 200
 
 
 def test_runner_returns_prediction_results() -> None:

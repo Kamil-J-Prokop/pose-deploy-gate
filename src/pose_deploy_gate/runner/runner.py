@@ -25,11 +25,12 @@ class Runner:
         images = tuple(self.data_source.iter_images())
         run_start_ns = self.timer.now_ns()
         run_end_ns = run_start_ns
+        actual_warmup_iterations = self.warmup_iterations if images else 0
 
         warmup_total_ns = 0
-        if images and self.warmup_iterations > 0:
+        if images and actual_warmup_iterations > 0:
             warmup_start_ns = self.timer.now_ns()
-            for _ in range(self.warmup_iterations):
+            for _ in range(actual_warmup_iterations):
                 self.adapter.predict(images[0])
             warmup_total_ns = self.timer.elapsed_ns(warmup_start_ns)
             run_end_ns = warmup_start_ns + warmup_total_ns
@@ -51,7 +52,7 @@ class Runner:
         total_time_ns = run_end_ns - run_start_ns
         return RunResult(
             warmup=WarmupResult(
-                iterations=self.warmup_iterations,
+                iterations=actual_warmup_iterations,
                 total_time_ns=warmup_total_ns,
             ),
             predictions=tuple(predictions),
