@@ -3,7 +3,9 @@
 from dataclasses import dataclass, field
 
 from pose_deploy_gate.adapters.base import PoseAdapter
+from pose_deploy_gate.adapters.exceptions import AdapterExecutionError
 from pose_deploy_gate.data.datasource import FileDataSource
+from pose_deploy_gate.runner.exceptions import RunnerExecutionError
 from pose_deploy_gate.runner.result import (
     PredictionResult,
     PredictionTiming,
@@ -30,16 +32,38 @@ class Runner:
         warmup_total_ns = 0
         if images and actual_warmup_iterations > 0:
             warmup_start_ns = self.timer.now_ns()
-            for _ in range(actual_warmup_iterations):
-                self.adapter.predict(images[0])
+            try:
+                for _ in range(actual_warmup_iterations):
+                    self.adapter.predict(images[0])
+            except AdapterExecutionError as e:
+                raise RunnerExecutionError(f"Adapter warmup failed: {e}") from e
             warmup_total_ns = self.timer.elapsed_ns(warmup_start_ns)
             run_end_ns = warmup_start_ns + warmup_total_ns
 
         predictions: list[PredictionResult] = []
         for image in images:
             prediction_start_ns = self.timer.now_ns()
-            output = self.adapter.predict(image)
-            elapsed_ns = self.timer.elapsed_ns(prediction_start_ns)
+
+            try:
+                output = self.adapter.predict(image)
+                elapsed_ns = self.timer.elapsed_ns(prediction_start_ns)
+            except AdapterExecutionError as e:
+                elapsed_ns = self.timer.elapsed_ns(prediction_start_ns)
+                run_end_ns = prediction_start_ns + elapsed_ns
+                predictions.append(
+                    PredictionResult(
+                        image=image,
+                        output=None,
+                        timing=PredictionTiming(image_id=image.image_id, elapsed_ns=elapsed_ns),
+                        error=str(e),
+                    )
+                )
+                if not self.continue_on_error:
+                    raise RunnerExecutionError(
+                        f"Adapter execution failed for image {image.image_id}: {e}"
+                    ) from e
+                continue
+
             run_end_ns = prediction_start_ns + elapsed_ns
             predictions.append(
                 PredictionResult(

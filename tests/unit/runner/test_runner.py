@@ -1,14 +1,19 @@
 from pathlib import Path
 
+import pytest
+
 from pose_deploy_gate.adapters.base import PoseAdapter
+from pose_deploy_gate.adapters.exceptions import AdapterExecutionError
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.data.datasource import FileDataSource
+from pose_deploy_gate.runner.exceptions import RunnerExecutionError
 from pose_deploy_gate.runner.runner import Runner
 
 
 class FakeAdapter(PoseAdapter):
-    def __init__(self) -> None:
+    def __init__(self, fail_on_image_ids: set[str] | None = None) -> None:
         self.images_seen: list[ImageInput] = []
+        self.fail_on_image_ids = fail_on_image_ids or set()
 
     @property
     def name(self) -> str:
@@ -16,6 +21,8 @@ class FakeAdapter(PoseAdapter):
 
     def predict(self, image: ImageInput) -> AdapterOutput:
         self.images_seen.append(image)
+        if image.image_id in self.fail_on_image_ids:
+            raise AdapterExecutionError(f"prediction failed for {image.image_id}")
         return AdapterOutput(poses=(), metadata={"image_id": image.image_id})
 
 
@@ -219,3 +226,100 @@ def test_runner_preserves_image_order_from_data_source() -> None:
         "image-001",
         "image-002",
     )
+
+
+def test_runner_raises_when_prediction_fails_and_continue_on_error_is_false() -> None:
+    images = (_image("image-001"), _image("image-002"))
+    adapter = FakeAdapter(fail_on_image_ids={"image-001"})
+    runner = Runner(
+        adapter=adapter,
+        data_source=FakeDataSource(images),
+        warmup_iterations=0,
+        continue_on_error=False,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(RunnerExecutionError, match="image-001"):
+        runner.run()
+
+    assert adapter.images_seen == [images[0]]
+
+
+def test_runner_continues_when_prediction_fails_and_continue_on_error_is_true() -> None:
+    images = (_image("image-001"), _image("image-002"))
+    adapter = FakeAdapter(fail_on_image_ids={"image-001"})
+    runner = Runner(
+        adapter=adapter,
+        data_source=FakeDataSource(images),
+        warmup_iterations=0,
+        continue_on_error=True,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+
+    assert adapter.images_seen == list(images)
+    assert len(result.predictions) == 2
+    assert result.predictions[1].output is not None
+    assert result.predictions[1].error is None
+
+
+def test_runner_failed_prediction_contains_error_message() -> None:
+    image = _image("image-001")
+    runner = Runner(
+        adapter=FakeAdapter(fail_on_image_ids={image.image_id}),
+        data_source=FakeDataSource((image,)),
+        warmup_iterations=0,
+        continue_on_error=True,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+
+    assert result.predictions[0].error == "prediction failed for image-001"
+
+
+def test_runner_failed_prediction_has_no_output() -> None:
+    image = _image("image-001")
+    runner = Runner(
+        adapter=FakeAdapter(fail_on_image_ids={image.image_id}),
+        data_source=FakeDataSource((image,)),
+        warmup_iterations=0,
+        continue_on_error=True,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+
+    assert result.predictions[0].output is None
+
+
+def test_runner_failed_prediction_still_records_timing() -> None:
+    image = _image("image-001")
+    runner = Runner(
+        adapter=FakeAdapter(fail_on_image_ids={image.image_id}),
+        data_source=FakeDataSource((image,)),
+        warmup_iterations=0,
+        continue_on_error=True,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    result = runner.run()
+
+    assert result.predictions[0].timing.image_id == image.image_id
+    assert result.predictions[0].timing.elapsed_ns == 100
+
+
+@pytest.mark.parametrize("continue_on_error", [False, True])
+def test_runner_warmup_failure_always_raises(continue_on_error: bool) -> None:
+    image = _image("image-001")
+    runner = Runner(
+        adapter=FakeAdapter(fail_on_image_ids={image.image_id}),
+        data_source=FakeDataSource((image,)),
+        warmup_iterations=1,
+        continue_on_error=continue_on_error,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(RunnerExecutionError, match="warmup"):
+        runner.run()
