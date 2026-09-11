@@ -16,7 +16,7 @@ Configs are loaded with `load_config(config_path)`.
 
 ## CLI Usage
 
-Validate a config file from the command line:
+Run the configured pipeline from the command line:
 
 ```bash
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml
@@ -28,10 +28,11 @@ Print the deterministic input list discovered from that config:
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml --list-inputs
 ```
 
-The command loads the YAML file, applies schema defaults, runs config
-validation, discovers input files, prints the resolved run settings, and exits
-with `0` when the config is valid. Config loading failures and data source
-discovery failures print an `ERROR:` message and exit with a non-zero code.
+The command loads the YAML file, applies schema defaults, validates the config,
+creates the adapter and data source, and executes the runner. A successful run
+prints the resolved config, prediction counts, and timing summary before
+exiting with `0`. Config, adapter, data source, and runner failures print an
+`ERROR:` message and exit with a non-zero code.
 
 ## Minimal Example
 
@@ -93,6 +94,16 @@ Data source iteration is deterministic:
 | `adapter.type` | Yes | literal `dummy` | none | Only the dummy adapter is currently supported. |
 | `adapter.params` | No | mapping | `{}` | Adapter-specific parameters. |
 
+### `runner`
+
+| Field | Required | Type | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `runner.warmup_iterations` | No | non-negative integer | `3` | Adapter calls made with the first input before measured predictions. Use `0` to disable warmup. |
+| `runner.continue_on_error` | No | boolean | `false` | Records prediction failures and continues when enabled; otherwise the first prediction failure stops the run. |
+
+Warmup, timing boundaries, and failure behavior are documented in
+[docs/runner.md](runner.md).
+
 ### `output`
 
 | Field | Required | Type | Default | Notes |
@@ -103,7 +114,7 @@ Data source iteration is deterministic:
 
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `gates.enabled` | No | boolean | `false` | Enables deployment gate evaluation. |
+| `gates.enabled` | No | boolean | `false` | Reserved for deployment gate evaluation. The gate engine is not implemented yet. |
 
 ## Validation Failures
 
@@ -122,6 +133,7 @@ empty `run.name`, empty `data.file_pattern`, and negative `run.seed`.
 ## Example Files
 
 - Minimal example: [config.minimal.yaml](examples/config.minimal.yaml)
+- Runner example: [config.runner.yaml](examples/config.runner.yaml)
 - Full example: [config.full.yaml](examples/config.full.yaml)
 - Recursive JPEG example: [config.recursive.yaml](examples/config.recursive.yaml)
 - JPEG-only example: [config.jpg-only.yaml](examples/config.jpg-only.yaml)
