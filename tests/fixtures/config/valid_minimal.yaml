@@ -1,0 +1,11 @@
+version: 1
+
+data:
+  input_dir: "./data"
+
+adapter:
+  type: "dummy"
+
+runner:
+  warmup_iterations: 3
+  continue_on_error: false

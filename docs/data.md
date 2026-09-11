@@ -55,8 +55,8 @@ adapter:
 
 ## CLI Behavior
 
-When you validate a config through the CLI, PoseDeployGate now reports how many
-input files were discovered:
+When you run a config through the CLI, PoseDeployGate reports how many input
+files were processed after the runner completes successfully:
 
 ```bash
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml

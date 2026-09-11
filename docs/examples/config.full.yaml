@@ -21,3 +21,7 @@ output:
 
 gates:
   enabled: false
+
+runner:
+  warmup_iterations: 3
+  continue_on_error: false

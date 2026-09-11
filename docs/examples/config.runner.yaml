@@ -1,4 +1,4 @@
-# Minimal config example for docs/config.md, docs/adapters.md, and docs/runner.md.
+# Runner policy example for docs/runner.md.
 # Replace "." with the directory that contains your evaluation inputs.
 version: 1
 
@@ -7,3 +7,7 @@ data:
 
 adapter:
   type: "dummy"
+
+runner:
+  warmup_iterations: 3
+  continue_on_error: false

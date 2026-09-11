@@ -18,8 +18,9 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ## Current status
 
-Version `0.4.0` adds deterministic data source iteration on top of the adapter
-interface and deterministic `DummyAdapter`.
+The `v0.5.0` development milestone adds config-driven runner execution with
+adapter warmup, per-prediction timing, configurable failure handling, and a CLI
+timing summary.
 
 Implemented so far:
 
@@ -38,13 +39,18 @@ Implemented so far:
 - normalized adapter input/output types
 - deterministic built-in `DummyAdapter`
 - deterministic file discovery and iteration via `FileDataSource`
+- config-driven runner construction and execution
+- configurable adapter warmup and prediction failure policy
+- monotonic per-prediction and total runner timing capture
+- CLI run summaries with prediction counts and millisecond timings
 
-This milestone keeps the configuration foundation in place and adds a stable
-input iteration boundary for upcoming runner, metrics, and reporting work.
+This milestone provides a stable execution boundary for upcoming metrics,
+validation, gate, and reporting work.
 
 Config documentation is in [docs/config.md](docs/config.md).
 Adapter documentation is in [docs/adapters.md](docs/adapters.md).
 Data source documentation is in [docs/data.md](docs/data.md).
+Runner and timing documentation is in [docs/runner.md](docs/runner.md).
 
 Example configs are in [docs/examples](docs/examples).
 
@@ -61,6 +67,7 @@ Run the CLI:
 ```bash
 uv run python -m pose_deploy_gate --version
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml
+uv run python -m pose_deploy_gate --config docs/examples/config.runner.yaml
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml --list-inputs
 uv run python -m pose_deploy_gate --input .
 ```
@@ -111,15 +118,17 @@ CI currently verifies:
 
 ## Roadmap
 
-Implemented in `v0.4.0`:
+Implemented through the `v0.5.0` development milestone:
 
 - adapter interface
 - deterministic dummy adapter
 - deterministic data source iteration
+- runner with warmup and timing capture
+- configurable prediction failure handling
+- config-driven CLI execution and timing summary
 
 Planned next steps:
 
-- runner with warmup and timing capture
 - deployment-oriented metrics
 - output validation and gate evaluation
 - report generation and CI artifacts
