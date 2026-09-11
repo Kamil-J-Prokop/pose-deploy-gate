@@ -6,10 +6,11 @@ import argparse
 from pathlib import Path
 
 from pose_deploy_gate import __version__
-from pose_deploy_gate.adapters import AdapterError, create_adapter
+from pose_deploy_gate.adapters import AdapterError
 from pose_deploy_gate.config import load_config
 from pose_deploy_gate.config.exceptions import ConfigError
-from pose_deploy_gate.data import DataSourceError, create_data_source
+from pose_deploy_gate.data import DataSourceError
+from pose_deploy_gate.runner import RunnerError, create_runner, ns_to_ms
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=Path,
-        help="Path to the YAML config file to validate.",
+        help="Path to the YAML config file to run.",
     )
     parser.add_argument(
         "--input",
@@ -58,33 +59,43 @@ def run(args: argparse.Namespace) -> int:
             print(f"ERROR: {exc}")
             return 2
 
-        try:
-            adapter = create_adapter(config.adapter)
-        except AdapterError as exc:
-            print(f"ERROR: {exc}")
-            return 2
-
-        try:
-            data_source = create_data_source(config.data)
-            images = tuple(data_source.iter_images())
-        except DataSourceError as exc:
-            print(f"ERROR: {exc}")
-            return 2
-
         print("PoseDeployGate config validation successful.")
         print(f"Config path: {args.config.resolve()}")
         print(f"Run name: {config.run.name}")
         print(f"Input directory: {config.data.input_dir.resolve()}")
-        print(f"Input files discovered: {len(images)}")
         print(f"Adapter: {config.adapter.type}")
-        print(f"Adapter initialized: {adapter.name}")
         print(f"Output directory: {config.output.dir}")
         print(f"Gates enabled: {config.gates.enabled}")
 
+        try:
+            runner = create_runner(config)
+            result = runner.run()
+
+        except AdapterError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+        except DataSourceError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+        except RunnerError as exc:
+            print(f"ERROR: {exc}")
+            return 2
+
+        print("PoseDeployGate run completed.")
+        print(f"Input files: {len(result.predictions)}")
+        print(f"Warmup iterations: {result.warmup.iterations}")
+        print(f"Successful predictions: {result.successful_predictions}")
+        print(f"Failed predictions: {result.failed_predictions}")
+        print(f"Average inference time: {ns_to_ms(result.average_inference_time_ns):.3f} ms")
+        print(
+            f"Total measured inference time: {ns_to_ms(result.measured_inference_time_ns):.3f} ms"
+        )
+        print(f"Total runner time: {ns_to_ms(result.total_time_ns):.3f} ms")
+
         if getattr(args, "list_inputs", False):
             print("Input files:")
-            for index, image in enumerate(images, start=1):
-                relative_path = image.path.relative_to(config.data.input_dir).as_posix()
+            for index, prediction in enumerate(result.predictions, start=1):
+                relative_path = prediction.image.path.relative_to(config.data.input_dir).as_posix()
                 print(f"  {index:03d}: {relative_path}")
 
         return 0
