@@ -1,3 +1,8 @@
+If you have ever asked yourself:
+>Can I swap my trusted **pose estimation** model or runtime for this cheaper/faster one without materially changing my application's outputs?
+
+PoseDeployGate is being built to answer exactly that question.
+
 # PoseDeployGate
 
 Deployment-first evaluation and selection framework for human pose estimation models under real-world constraints.
