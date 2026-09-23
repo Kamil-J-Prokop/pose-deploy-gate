@@ -1,6 +1,6 @@
 """Computation engine for metrics module."""
 
-from pose_deploy_gate.metrics.result import ErrorRateMetrics, LatencyMetrics
+from pose_deploy_gate.metrics.result import ErrorRateMetrics, LatencyMetrics, MetricsResult
 from pose_deploy_gate.metrics.statistics import compute_percentiles
 from pose_deploy_gate.runner.result import RunResult
 
@@ -53,4 +53,15 @@ class MetricsEngine:
         return ErrorRateMetrics(
             total_attempts=total_attempts,
             failed_predictions=failed_predictions,
+        )
+
+    def compute(self, run_result: RunResult) -> MetricsResult:
+        """Compute metrics from a run result."""
+        latencies = self._successful_latencies(run_result)
+        latency_metrics = self._compute_latency(latencies)
+        error_metrics = self._compute_error_metrics(run_result)
+
+        return MetricsResult(
+            latency=latency_metrics,
+            errors=error_metrics,
         )

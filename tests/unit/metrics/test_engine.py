@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
@@ -164,3 +165,55 @@ def test_error_metrics_are_undefined_when_no_attempts_exist() -> None:
     assert metrics.failed_predictions == 0
     assert metrics.error_rate is None
     assert metrics.success_rate is None
+
+
+def test_compute_returns_latency_and_error_metrics() -> None:
+    run_result = _run_result(
+        _prediction("success-1", 100),
+        _prediction("failure", 10_000, error="adapter failed"),
+        _prediction("success-2", 300),
+    )
+
+    metrics = MetricsEngine().compute(run_result)
+
+    assert metrics.latency.p95_ns == 300.0
+    assert metrics.errors.error_rate == 1 / 3
+
+
+def test_compute_does_not_mutate_run_result() -> None:
+    run_result = _run_result(
+        _prediction("success", 100),
+        _prediction("failure", 300, error="adapter failed"),
+    )
+    original_run_result = deepcopy(run_result)
+
+    MetricsEngine().compute(run_result)
+
+    assert run_result == original_run_result
+
+
+def test_compute_repeated_calls_produce_equal_results() -> None:
+    run_result = _run_result(
+        _prediction("success", 100),
+        _prediction("failure", 300, error="adapter failed"),
+    )
+    engine = MetricsEngine()
+
+    first_result = engine.compute(run_result)
+    second_result = engine.compute(run_result)
+
+    assert first_result == second_result
+
+
+def test_compute_prediction_order_does_not_affect_metrics() -> None:
+    predictions = (
+        _prediction("success-1", 100),
+        _prediction("failure", 10_000, error="adapter failed"),
+        _prediction("success-2", 300),
+    )
+    engine = MetricsEngine()
+
+    original_order_metrics = engine.compute(_run_result(*predictions))
+    reversed_order_metrics = engine.compute(_run_result(*reversed(predictions)))
+
+    assert original_order_metrics == reversed_order_metrics
