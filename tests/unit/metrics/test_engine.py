@@ -2,6 +2,7 @@ from pathlib import Path
 
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.metrics.engine import MetricsEngine
+from pose_deploy_gate.metrics.result import ErrorRateMetrics
 from pose_deploy_gate.runner.result import (
     PredictionResult,
     PredictionTiming,
@@ -30,6 +31,13 @@ def _run_result(*predictions: PredictionResult) -> RunResult:
         predictions=predictions,
         total_time_ns=sum(prediction.timing.elapsed_ns for prediction in predictions),
     )
+
+
+def _error_metrics(*errors: str | None) -> ErrorRateMetrics:
+    run_result = _run_result(
+        *(_prediction(f"image-{index}", 100, error=error) for index, error in enumerate(errors))
+    )
+    return MetricsEngine._compute_error_metrics(run_result)
 
 
 def test_latency_metrics_use_successful_predictions_only() -> None:
@@ -104,3 +112,55 @@ def test_latency_metrics_return_none_without_successful_predictions() -> None:
     assert metrics.p95_ns is None
     assert metrics.p99_ns is None
     assert metrics.max_ns is None
+
+
+def test_error_metrics_count_total_attempts() -> None:
+    metrics = _error_metrics(None, "adapter failed", None)
+
+    assert metrics.total_attempts == 3
+
+
+def test_error_metrics_count_successes() -> None:
+    metrics = _error_metrics(None, "adapter failed", None)
+
+    assert metrics.successful_predictions == 2
+
+
+def test_error_metrics_count_failures() -> None:
+    metrics = _error_metrics(None, "adapter failed", "timeout")
+
+    assert metrics.failed_predictions == 2
+
+
+def test_error_metrics_compute_error_rate() -> None:
+    metrics = _error_metrics(None, None, None, "adapter failed")
+
+    assert metrics.error_rate == 0.25
+
+
+def test_error_metrics_compute_success_rate() -> None:
+    metrics = _error_metrics(None, None, None, "adapter failed")
+
+    assert metrics.success_rate == 0.75
+
+
+def test_error_metrics_report_zero_error_rate_when_all_succeed() -> None:
+    metrics = _error_metrics(None, None, None)
+
+    assert metrics.error_rate == 0.0
+
+
+def test_error_metrics_report_one_error_rate_when_all_fail() -> None:
+    metrics = _error_metrics("adapter failed", "timeout", "invalid output")
+
+    assert metrics.error_rate == 1.0
+
+
+def test_error_metrics_are_undefined_when_no_attempts_exist() -> None:
+    metrics = _error_metrics()
+
+    assert metrics.total_attempts == 0
+    assert metrics.successful_predictions == 0
+    assert metrics.failed_predictions == 0
+    assert metrics.error_rate is None
+    assert metrics.success_rate is None
