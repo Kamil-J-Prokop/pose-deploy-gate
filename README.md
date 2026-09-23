@@ -1,3 +1,8 @@
+If you have ever asked yourself:
+>Can I swap my trusted **pose estimation** model or runtime for this cheaper/faster one without materially changing my application's outputs?
+
+PoseDeployGate is being built to answer exactly that question.
+
 # PoseDeployGate
 
 Deployment-first evaluation and selection framework for human pose estimation models under real-world constraints.
@@ -18,9 +23,8 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ## Current status
 
-The `v0.5.0` development milestone adds config-driven runner execution with
-adapter warmup, per-prediction timing, configurable failure handling, and a CLI
-timing summary.
+The `v0.6.0` development milestone adds deployment-oriented latency and
+prediction-error metrics derived from config-driven runner results.
 
 Implemented so far:
 
@@ -42,15 +46,18 @@ Implemented so far:
 - config-driven runner construction and execution
 - configurable adapter warmup and prediction failure policy
 - monotonic per-prediction and total runner timing capture
-- CLI run summaries with prediction counts and millisecond timings
+- deployment-oriented minimum, mean, P50, P95, P99, and maximum latency metrics
+- prediction success, failure, and error-rate metrics
+- CLI run summaries with latency and reliability metrics
 
-This milestone provides a stable execution boundary for upcoming metrics,
-validation, gate, and reporting work.
+This milestone provides a stable metrics boundary for upcoming validation,
+gate, and reporting work.
 
 Config documentation is in [docs/config.md](docs/config.md).
 Adapter documentation is in [docs/adapters.md](docs/adapters.md).
 Data source documentation is in [docs/data.md](docs/data.md).
 Runner and timing documentation is in [docs/runner.md](docs/runner.md).
+Metric semantics are documented in [docs/metrics.md](docs/metrics.md).
 
 Example configs are in [docs/examples](docs/examples).
 
@@ -118,18 +125,20 @@ CI currently verifies:
 
 ## Roadmap
 
-Implemented through the `v0.5.0` development milestone:
+Implemented through the `v0.6.0` development milestone:
 
 - adapter interface
 - deterministic dummy adapter
 - deterministic data source iteration
 - runner with warmup and timing capture
 - configurable prediction failure handling
-- config-driven CLI execution and timing summary
+- config-driven CLI execution
+- deployment-oriented latency metrics
+- prediction error-rate metrics
+- CLI latency and reliability summary
 
 Planned next steps:
 
-- deployment-oriented metrics
 - output validation and gate evaluation
 - report generation and CI artifacts
 

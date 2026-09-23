@@ -1,6 +1,6 @@
 # Runner
 
-The runner is the execution layer between configured input discovery and later
+The runner is the execution layer between configured input discovery and the
 metrics, gate, and reporting stages. It executes one configured adapter over
 the discovered inputs, performs optional warmup calls, captures monotonic
 timings, and returns a structured `RunResult`.
@@ -22,9 +22,21 @@ The CLI runs this pipeline with:
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml
 ```
 
-After a successful run, it prints the number of inputs, warmup iterations,
-successful and failed prediction counts, and a timing summary in milliseconds.
-Internally, runner timings are stored in nanoseconds.
+After a successful run, the CLI passes the returned `RunResult` to
+`MetricsEngine` and prints latency and reliability metrics. Internally, runner
+timings and metric latency values are stored in nanoseconds.
+
+## Runner results and metrics
+
+`RunResult` is the source of raw per-attempt timings, prediction outputs, and
+failure details. It describes what happened during execution without defining
+deployment percentile or error-rate semantics.
+
+`MetricsEngine` derives deployment metrics from those raw results. It excludes
+failed attempts from latency samples, includes every measured attempt in the
+error-rate denominator, and computes minimum, mean, P50, P95, P99, and maximum
+latency. See [metrics.md](metrics.md) for the complete definitions and empty-run
+behavior.
 
 ## Configuration
 
@@ -104,7 +116,7 @@ timer. The runner timing fields therefore exclude:
 - runner, adapter, and data source construction
 - filesystem input discovery and creation of `ImageInput` values
 - CLI output formatting and printing
-- any later metrics, gate evaluation, report writing, or artifact persistence
+- any later metrics computation, gate evaluation, report writing, or artifact persistence
 
 `run.total_time_ns` includes the warmup block and orchestration between adapter
 calls inside the measured execution window. It is therefore broader than
@@ -133,9 +145,10 @@ prints these failures with an `ERROR:` prefix and returns exit code `2`.
 
 ## Intentionally out of scope
 
-The current runner deliberately does not provide:
+The runner deliberately does not provide:
 
-- latency percentiles or other statistical metrics
+- latency percentiles or error rates directly; `MetricsEngine` derives them
+  from `RunResult`
 - pose-output validation or accuracy metrics
 - deployment gate evaluation
 - JSON or Markdown report generation
@@ -145,6 +158,6 @@ The current runner deliberately does not provide:
 - CPU, GPU, memory, power, or throughput measurements
 - separate preprocessing, model-kernel, and postprocessing timings
 
-Those concerns belong to later metrics, validation, gate, and reporting
-milestones. Keeping the runner focused provides one stable source of prediction
-results and raw elapsed-time measurements for those layers.
+Keeping the runner focused provides one stable source of prediction results and
+raw elapsed-time measurements for the metrics, validation, gate, and reporting
+layers.
