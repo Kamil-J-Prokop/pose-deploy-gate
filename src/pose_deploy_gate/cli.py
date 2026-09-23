@@ -10,7 +10,22 @@ from pose_deploy_gate.adapters import AdapterError
 from pose_deploy_gate.config import load_config
 from pose_deploy_gate.config.exceptions import ConfigError
 from pose_deploy_gate.data import DataSourceError
+from pose_deploy_gate.metrics import MetricsEngine
 from pose_deploy_gate.runner import RunnerError, create_runner, ns_to_ms
+
+
+def _format_latency_ns(value: float | int | None) -> str:
+    """Format a latency in nanoseconds for CLI output."""
+    if value is None:
+        return "n/a"
+    return f"{ns_to_ms(value):.3f} ms"
+
+
+def _format_rate(value: float | None) -> str:
+    """Format a ratio as a percentage for CLI output."""
+    if value is None:
+        return "n/a"
+    return f"{100 * value:.2f}%"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -81,16 +96,27 @@ def run(args: argparse.Namespace) -> int:
             print(f"ERROR: {exc}")
             return 2
 
+        metrics = MetricsEngine().compute(result)
+
         print("PoseDeployGate run completed.")
         print(f"Input files: {len(result.predictions)}")
         print(f"Warmup iterations: {result.warmup.iterations}")
-        print(f"Successful predictions: {result.successful_predictions}")
-        print(f"Failed predictions: {result.failed_predictions}")
-        print(f"Average inference time: {ns_to_ms(result.average_inference_time_ns):.3f} ms")
-        print(
-            f"Total measured inference time: {ns_to_ms(result.measured_inference_time_ns):.3f} ms"
-        )
-        print(f"Total runner time: {ns_to_ms(result.total_time_ns):.3f} ms")
+        print()
+        print("Latency:")
+        print(f"  Samples: {metrics.latency.sample_count}")
+        print(f"  Min: {_format_latency_ns(metrics.latency.min_ns)}")
+        print(f"  Mean: {_format_latency_ns(metrics.latency.mean_ns)}")
+        print(f"  P50: {_format_latency_ns(metrics.latency.p50_ns)}")
+        print(f"  P95: {_format_latency_ns(metrics.latency.p95_ns)}")
+        print(f"  P99: {_format_latency_ns(metrics.latency.p99_ns)}")
+        print(f"  Max: {_format_latency_ns(metrics.latency.max_ns)}")
+        print()
+        print("Reliability:")
+        print(f"  Successful predictions: {metrics.errors.successful_predictions}")
+        print(f"  Failed predictions: {metrics.errors.failed_predictions}")
+        print(f"  Error rate: {_format_rate(metrics.errors.error_rate)}")
+        print()
+        print(f"Total runner time: {_format_latency_ns(result.total_time_ns)}")
 
         if getattr(args, "list_inputs", False):
             print("Input files:")

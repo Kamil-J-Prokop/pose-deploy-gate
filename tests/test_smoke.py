@@ -126,12 +126,12 @@ def test_cli_config_prints_timing_summary(
     assert "Warmup iterations: 3" in output
     assert "Successful predictions: 2" in output
     assert "Failed predictions: 0" in output
-    for label in (
-        "Average inference time:",
-        "Total measured inference time:",
-        "Total runner time:",
-    ):
-        assert re.search(rf"^{re.escape(label)} \d+\.\d{{3}} ms$", output, re.MULTILINE)
+    assert "Latency:" in output
+    assert "Reliability:" in output
+    assert "  Error rate: 0.00%" in output
+    for label in ("Min", "Mean", "P50", "P95", "P99", "Max"):
+        assert re.search(rf"^  {label}: \d+\.\d{{3}} ms$", output, re.MULTILINE)
+    assert re.search(r"^Total runner time: \d+\.\d{3} ms$", output, re.MULTILINE)
 
 
 def test_cli_config_list_inputs_prints_files_in_deterministic_order(
