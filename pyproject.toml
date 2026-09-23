@@ -1,6 +1,6 @@
 [project]
 name = "pose-deploy-gate"
-version = "0.5.0"
+version = "0.6.0"
 description = "Deployment-focused validation tooling for body keypoint model comparison."
 readme = "README.md"
 requires-python = ">=3.12"
