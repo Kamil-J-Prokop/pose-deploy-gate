@@ -8,6 +8,7 @@ from pose_deploy_gate.adapters.exceptions import (
     UnsupportedAdapterError,
 )
 from pose_deploy_gate.adapters.factory import create_adapter
+from pose_deploy_gate.adapters.schema import KeypointSchema
 from pose_deploy_gate.adapters.types import (
     AdapterOutput,
     ImageInput,
@@ -26,4 +27,5 @@ __all__ = [
     "PosePrediction",
     "UnsupportedAdapterError",
     "create_adapter",
+    "KeypointSchema",
 ]

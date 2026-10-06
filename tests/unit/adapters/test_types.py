@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput, Keypoint, PosePrediction
 
 
@@ -39,9 +40,25 @@ def test_adapter_output_contains_poses_and_metadata():
     )
 
     output = AdapterOutput(
+        schema=DUMMY_5_SCHEMA,
         poses=(pose,),
         metadata={"model_name": "dummy", "latency_ms": 12.4},
     )
 
+    assert output.schema is DUMMY_5_SCHEMA
     assert output.poses == (pose,)
     assert output.metadata == {"model_name": "dummy", "latency_ms": 12.4}
+
+
+def test_adapter_output_retains_schema_with_zero_poses():
+    output = AdapterOutput(schema=DUMMY_5_SCHEMA, poses=())
+
+    assert output.schema is DUMMY_5_SCHEMA
+    assert output.poses == ()
+    assert output.metadata == {}
+
+
+def test_pose_prediction_confidence_may_be_absent():
+    pose = PosePrediction(keypoints=(Keypoint(name="nose", x=0.5, y=0.1),))
+
+    assert pose.confidence is None

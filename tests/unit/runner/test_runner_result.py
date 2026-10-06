@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.runner.result import (
     PredictionResult,
@@ -24,7 +25,7 @@ def _prediction(
 ) -> PredictionResult:
     return PredictionResult(
         image=_image(image_id),
-        output=None if error else AdapterOutput(poses=()),
+        output=None if error else AdapterOutput(schema=DUMMY_5_SCHEMA, poses=()),
         timing=PredictionTiming(image_id=image_id, elapsed_ns=elapsed_ns),
         error=error,
     )

@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pose_deploy_gate.adapters.schema import KeypointSchema
+
 
 @dataclass(frozen=True)
 class ImageInput:
@@ -30,7 +32,7 @@ class PosePrediction:
     """Normalized pose prediction emitted by an adapter."""
 
     keypoints: tuple[Keypoint, ...]
-    confidence: float
+    confidence: float | None = None
     person_id: str | None = None
 
 
@@ -38,6 +40,7 @@ class PosePrediction:
 class AdapterOutput:
     """Top-level normalized adapter output for one image."""
 
+    schema: KeypointSchema
     poses: tuple[PosePrediction, ...]
     metadata: Mapping[str, Any] = field(default_factory=dict)
 

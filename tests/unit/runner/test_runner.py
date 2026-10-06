@@ -4,6 +4,7 @@ import pytest
 
 from pose_deploy_gate.adapters.base import PoseAdapter
 from pose_deploy_gate.adapters.exceptions import AdapterExecutionError
+from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.data.datasource import FileDataSource
 from pose_deploy_gate.runner.exceptions import RunnerExecutionError
@@ -23,7 +24,7 @@ class FakeAdapter(PoseAdapter):
         self.images_seen.append(image)
         if image.image_id in self.fail_on_image_ids:
             raise AdapterExecutionError(f"prediction failed for {image.image_id}")
-        return AdapterOutput(poses=(), metadata={"image_id": image.image_id})
+        return AdapterOutput(schema=DUMMY_5_SCHEMA, poses=(), metadata={"image_id": image.image_id})
 
 
 class FakeDataSource(FileDataSource):
@@ -168,12 +169,12 @@ def test_runner_returns_prediction_results() -> None:
     assert len(result.predictions) == 2
     assert result.predictions[0].image == images[0]
     assert result.predictions[0].output == AdapterOutput(
-        poses=(), metadata={"image_id": "image-001"}
+        schema=DUMMY_5_SCHEMA, poses=(), metadata={"image_id": "image-001"}
     )
     assert result.predictions[0].error is None
     assert result.predictions[1].image == images[1]
     assert result.predictions[1].output == AdapterOutput(
-        poses=(), metadata={"image_id": "image-002"}
+        schema=DUMMY_5_SCHEMA, poses=(), metadata={"image_id": "image-002"}
     )
     assert result.predictions[1].error is None
 

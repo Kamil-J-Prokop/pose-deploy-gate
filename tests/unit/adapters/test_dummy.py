@@ -2,6 +2,7 @@ from pathlib import Path
 
 from pose_deploy_gate.adapters.base import PoseAdapter
 from pose_deploy_gate.adapters.dummy import DummyAdapter
+from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.config import load_config
 
@@ -40,10 +41,10 @@ def test_dummy_adapter_output_contains_expected_keypoints():
     assert len(output.poses) == 1
     assert tuple(keypoint.name for keypoint in output.poses[0].keypoints) == (
         "nose",
-        "left_shoulder",
-        "right_shoulder",
-        "left_hip",
-        "right_hip",
+        "left_wrist",
+        "right_wrist",
+        "left_ankle",
+        "right_ankle",
     )
 
 
@@ -83,3 +84,17 @@ def test_dummy_adapter_with_params_from_config(tmp_path: Path):
 
     assert output.poses[0].confidence == 0.8
     assert all(keypoint.confidence == 0.9 for keypoint in output.poses[0].keypoints)
+
+
+def test_dummy_adapter_declares_and_returns_dummy_schema():
+    adapter = DummyAdapter()
+    image = ImageInput(image_id="image-001", path=Path("/tmp/frame.jpg"))
+
+    output = adapter.predict(image)
+
+    assert adapter.schema is DUMMY_5_SCHEMA
+    assert output.schema is DUMMY_5_SCHEMA
+    assert (
+        tuple(keypoint.name for keypoint in output.poses[0].keypoints)
+        == output.schema.keypoint_names
+    )

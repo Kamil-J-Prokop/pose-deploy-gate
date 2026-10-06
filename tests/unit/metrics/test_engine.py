@@ -1,6 +1,7 @@
 from copy import deepcopy
 from pathlib import Path
 
+from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.metrics.engine import MetricsEngine
 from pose_deploy_gate.metrics.result import ErrorRateMetrics
@@ -20,7 +21,7 @@ def _prediction(
 ) -> PredictionResult:
     return PredictionResult(
         image=ImageInput(image_id=image_id, path=Path(f"/tmp/{image_id}.jpg")),
-        output=None if error else AdapterOutput(poses=()),
+        output=None if error else AdapterOutput(schema=DUMMY_5_SCHEMA, poses=()),
         timing=PredictionTiming(image_id=image_id, elapsed_ns=elapsed_ns),
         error=error,
     )
