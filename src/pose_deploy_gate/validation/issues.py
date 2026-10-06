@@ -9,6 +9,8 @@ class OutputValidationCode(StrEnum):
 
     COORDINATE_OUT_OF_RANGE = "coordinate_out_of_range"
     INVALID_COORDINATE_PAIR = "invalid_coordinate_pair"
+    NON_FINITE_COORDINATE = "non_finite_coordinate"
+    VISIBLE_MISSING_KEYPOINT = "visible_missing_keypoint"
 
 
 @dataclass(frozen=True)
