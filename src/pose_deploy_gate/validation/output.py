@@ -1,4 +1,4 @@
-"""Validation of normalized adapter output coordinates."""
+"""Validation of normalized adapter output values."""
 
 from math import isfinite
 
@@ -7,7 +7,44 @@ from pose_deploy_gate.validation.issues import OutputValidationCode, OutputValid
 
 
 class AdapterOutputValidator:
-    """Collect coordinate issues across every pose in an adapter output."""
+    """Collect coordinate and confidence issues across an adapter output."""
+
+    def validate_confidence(self, output: AdapterOutput) -> list[OutputValidationIssue]:
+        """Return confidence issues for every pose and keypoint."""
+        issues: list[OutputValidationIssue] = []
+        for pose_index, pose in enumerate(output.poses):
+            path = f"poses[{pose_index}]"
+            issues.extend(self._validate_confidence_value(pose.confidence, f"{path}.confidence"))
+            for keypoint_index, keypoint in enumerate(pose.keypoints):
+                issues.extend(
+                    self._validate_confidence_value(
+                        keypoint.confidence,
+                        f"{path}.keypoints[{keypoint_index}].confidence",
+                    )
+                )
+        return issues
+
+    @staticmethod
+    def _validate_confidence_value(value: float | None, path: str) -> list[OutputValidationIssue]:
+        if value is None:
+            return []
+        if not isfinite(value):
+            return [
+                OutputValidationIssue(
+                    path=path,
+                    code=OutputValidationCode.NON_FINITE_CONFIDENCE,
+                    message=f"expected a finite confidence, got {value}",
+                )
+            ]
+        if not 0 <= value <= 1:
+            return [
+                OutputValidationIssue(
+                    path=path,
+                    code=OutputValidationCode.CONFIDENCE_OUT_OF_RANGE,
+                    message=f"expected [0, 1], got {value}",
+                )
+            ]
+        return []
 
     def validate_keypoints(self, output: AdapterOutput) -> list[OutputValidationIssue]:
         """Return all coordinate issues, or an empty list for valid output."""

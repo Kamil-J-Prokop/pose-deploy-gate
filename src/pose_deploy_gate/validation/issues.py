@@ -11,6 +11,8 @@ class OutputValidationCode(StrEnum):
     INVALID_COORDINATE_PAIR = "invalid_coordinate_pair"
     NON_FINITE_COORDINATE = "non_finite_coordinate"
     VISIBLE_MISSING_KEYPOINT = "visible_missing_keypoint"
+    CONFIDENCE_OUT_OF_RANGE = "confidence_out_of_range"
+    NON_FINITE_CONFIDENCE = "non_finite_confidence"
 
 
 @dataclass(frozen=True)
