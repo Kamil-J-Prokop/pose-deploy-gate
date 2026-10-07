@@ -3,11 +3,27 @@
 from math import isfinite
 
 from pose_deploy_gate.adapters.types import AdapterOutput
+from pose_deploy_gate.validation.exceptions import AdapterOutputValidationError
 from pose_deploy_gate.validation.issues import OutputValidationCode, OutputValidationIssue
 
 
 class AdapterOutputValidator:
     """Collect schema, identity, coordinate, and confidence issues across an adapter output."""
+
+    def validate(self, output: AdapterOutput) -> tuple[OutputValidationIssue, ...]:
+        """Return all issues for the given adapter output."""
+        return tuple(
+            self.validate_schema(output)
+            + self.validate_person_ids(output)
+            + self.validate_keypoints(output)
+            + self.validate_confidence(output)
+        )
+
+    def validate_or_raise(self, output: AdapterOutput) -> None:
+        """Raise AdapterOutputValidationError if output has any validation issues."""
+        issues = self.validate(output)
+        if issues:
+            raise AdapterOutputValidationError(issues)
 
     def validate_person_ids(self, output: AdapterOutput) -> list[OutputValidationIssue]:
         """Return issues for empty or duplicate person IDs within one output."""
