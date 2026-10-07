@@ -1,6 +1,7 @@
 """Dataclasses for the runner results."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 
@@ -17,12 +18,24 @@ class PredictionTiming:
     elapsed_ns: int
 
 
+class PredictionFailureKind(StrEnum):
+    """Distinguish adapter execution failures from invalid adapter outputs."""
+
+    ADAPTER_EXECUTION = "adapter_execution"
+    OUTPUT_VALIDATION = "output_validation"
+
+
 @dataclass(frozen=True)
 class PredictionResult:
     image: ImageInput
     output: AdapterOutput | None
     timing: PredictionTiming
     error: str | None = None
+    failure_kind: PredictionFailureKind | None = None
+
+    def __post_init__(self) -> None:
+        if (self.error is None) != (self.failure_kind is None):
+            raise ValueError("error and failure_kind must both be None or both be present")
 
 
 @dataclass(frozen=True)

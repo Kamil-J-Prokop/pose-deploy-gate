@@ -1,12 +1,18 @@
 from argparse import Namespace
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
+from pose_deploy_gate.adapters import DummyAdapter
+from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
+from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput, Keypoint, PosePrediction
 from pose_deploy_gate.cli import run
+from pose_deploy_gate.data import FileDataSource
+from pose_deploy_gate.runner import Runner
 from pose_deploy_gate.runner.result import (
+    PredictionFailureKind,
     PredictionResult,
     PredictionTiming,
     RunResult,
@@ -22,9 +28,10 @@ def _prediction(
 ) -> PredictionResult:
     return PredictionResult(
         image=ImageInput(image_id=image_id, path=Path(f"/inputs/{image_id}.jpg")),
-        output=None if error else AdapterOutput(poses=()),
+        output=None if error is not None else AdapterOutput(schema=DUMMY_5_SCHEMA, poses=()),
         timing=PredictionTiming(image_id=image_id, elapsed_ns=elapsed_ns),
         error=error,
+        failure_kind=PredictionFailureKind.ADAPTER_EXECUTION if error is not None else None,
     )
 
 
@@ -159,6 +166,8 @@ def test_cli_prints_zero_error_rate(
     )
 
     assert "  Error rate: 0.00%" in output
+    assert "    Adapter execution failures: 0" in output
+    assert "    Output validation failures: 0" in output
 
 
 def test_cli_prints_na_for_missing_latency_samples(
@@ -180,3 +189,65 @@ def test_cli_prints_na_for_missing_latency_samples(
     for label in ("Min", "Mean", "P50", "P95", "P99", "Max"):
         assert f"  {label}: n/a" in output
         assert f"  {label}: 0.000 ms" not in output
+
+
+@pytest.mark.parametrize("adapter_failure_count", [0, 1])
+def test_cli_reports_validation_failure_count(monkeypatch, capsys, tmp_path, adapter_failure_count):
+    validation_failure = replace(
+        _prediction("invalid", 100, error="poses[0].keypoints[0].x: coordinate_out_of_range"),
+        failure_kind=PredictionFailureKind.OUTPUT_VALIDATION,
+    )
+    predictions = [
+        _prediction("valid", 100),
+        validation_failure,
+        replace(
+            validation_failure,
+            image=ImageInput(image_id="invalid-2", path=tmp_path / "invalid-2.jpg"),
+        ),
+    ]
+    if adapter_failure_count:
+        predictions.append(_prediction("adapter-error", 100, error="adapter failed"))
+    output = _run_cli(_run_result(*predictions), monkeypatch, capsys, tmp_path)
+    assert "  Successful predictions: 1" in output
+    assert f"  Failed predictions: {2 + adapter_failure_count}" in output
+    assert f"    Adapter execution failures: {adapter_failure_count}" in output
+    assert "    Output validation failures: 2" in output
+    assert "coordinate_out_of_range" not in output
+    assert "poses[" not in output
+
+
+def test_cli_reports_actionable_fail_fast_validation_error(monkeypatch, capsys, tmp_path):
+    (tmp_path / "person_004.jpg").touch()
+    invalid_output = AdapterOutput(
+        schema=DUMMY_5_SCHEMA,
+        poses=(
+            PosePrediction(
+                keypoints=tuple(
+                    Keypoint(name=name, x=1.27 if index == 0 else 0.5, y=0.5)
+                    for index, name in enumerate(DUMMY_5_SCHEMA.keypoint_names)
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(DummyAdapter, "predict", lambda self, image: invalid_output)
+    runner = Runner(
+        adapter=DummyAdapter(),
+        data_source=FileDataSource(input_dir=tmp_path, file_pattern="*.jpg"),
+        warmup_iterations=0,
+    )
+    config = SimpleNamespace(
+        run=SimpleNamespace(name="test-run"),
+        data=SimpleNamespace(input_dir=tmp_path),
+        adapter=SimpleNamespace(type="dummy"),
+        output=SimpleNamespace(dir=tmp_path / "output"),
+        gates=SimpleNamespace(enabled=True),
+    )
+    monkeypatch.setattr("pose_deploy_gate.cli.load_config", lambda path: config)
+    monkeypatch.setattr("pose_deploy_gate.cli.create_runner", lambda config: runner)
+    args = Namespace(config=tmp_path / "config.yaml", input=None, strict=False, list_inputs=False)
+    assert run(args) == 2
+    output = capsys.readouterr().out
+    assert "ERROR: Output validation failed for image person_004:" in output
+    assert "poses[0].keypoints[0].x: coordinate_out_of_range: expected [0, 1], got 1.27" in output
+    assert "PoseDeployGate run completed." not in output
+    assert "Reliability:" not in output

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from pose_deploy_gate.adapters.base import PoseAdapter
+from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 
 
@@ -19,7 +20,7 @@ def test_pose_adapter_cannot_be_instantiated_directly():
                 "MissingNameAdapter",
                 (PoseAdapter,),
                 {
-                    "predict": lambda self, image: AdapterOutput(poses=()),
+                    "predict": lambda self, image: AdapterOutput(schema=DUMMY_5_SCHEMA, poses=()),
                 },
             ),
             "name",
@@ -52,7 +53,9 @@ def test_concrete_adapter_can_satisfy_the_interface():
         def predict(self, image: ImageInput) -> AdapterOutput:
             # Replace this placeholder with model inference that maps into the
             # shared AdapterOutput shape expected by the rest of the app.
-            return AdapterOutput(poses=(), metadata={"image_id": image.image_id})
+            return AdapterOutput(
+                schema=DUMMY_5_SCHEMA, poses=(), metadata={"image_id": image.image_id}
+            )
 
     adapter = ExampleAdapter()
     image = ImageInput(image_id="image-001", path=Path("/tmp/frame.jpg"))
@@ -60,4 +63,6 @@ def test_concrete_adapter_can_satisfy_the_interface():
     output = adapter.predict(image)
 
     assert adapter.name == "example"
-    assert output == AdapterOutput(poses=(), metadata={"image_id": "image-001"})
+    assert output == AdapterOutput(
+        schema=DUMMY_5_SCHEMA, poses=(), metadata={"image_id": "image-001"}
+    )

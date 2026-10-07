@@ -11,7 +11,7 @@ from pose_deploy_gate.config import load_config
 from pose_deploy_gate.config.exceptions import ConfigError
 from pose_deploy_gate.data import DataSourceError
 from pose_deploy_gate.metrics import MetricsEngine
-from pose_deploy_gate.runner import RunnerError, create_runner, ns_to_ms
+from pose_deploy_gate.runner import PredictionFailureKind, RunnerError, create_runner, ns_to_ms
 
 
 def _format_latency_ns(value: float | int | None) -> str:
@@ -97,6 +97,14 @@ def run(args: argparse.Namespace) -> int:
             return 2
 
         metrics = MetricsEngine().compute(result)
+        adapter_failures = sum(
+            prediction.failure_kind is PredictionFailureKind.ADAPTER_EXECUTION
+            for prediction in result.predictions
+        )
+        validation_failures = sum(
+            prediction.failure_kind is PredictionFailureKind.OUTPUT_VALIDATION
+            for prediction in result.predictions
+        )
 
         print("PoseDeployGate run completed.")
         print(f"Input files: {len(result.predictions)}")
@@ -114,6 +122,8 @@ def run(args: argparse.Namespace) -> int:
         print("Reliability:")
         print(f"  Successful predictions: {metrics.errors.successful_predictions}")
         print(f"  Failed predictions: {metrics.errors.failed_predictions}")
+        print(f"    Adapter execution failures: {adapter_failures}")
+        print(f"    Output validation failures: {validation_failures}")
         print(f"  Error rate: {_format_rate(metrics.errors.error_rate)}")
         print()
         print(f"Total runner time: {_format_latency_ns(result.total_time_ns)}")

@@ -1,4 +1,5 @@
 from pose_deploy_gate.runner import (
+    PredictionFailureKind,
     PredictionResult,
     PredictionTiming,
     Runner,
@@ -13,6 +14,7 @@ from pose_deploy_gate.runner import (
 
 
 def test_runner_public_api_imports_expected_symbols() -> None:
+    assert PredictionFailureKind is not None
     assert PredictionResult is not None
     assert PredictionTiming is not None
     assert RunResult is not None
