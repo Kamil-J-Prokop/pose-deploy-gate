@@ -14,6 +14,10 @@ from pose_deploy_gate.runner.result import (
     WarmupResult,
 )
 from pose_deploy_gate.runner.timing import Timer
+from pose_deploy_gate.validation import (
+    AdapterOutputValidationError,
+    AdapterOutputValidator,
+)
 
 
 @dataclass(frozen=True)
@@ -23,6 +27,7 @@ class Runner:
     warmup_iterations: int = 3
     continue_on_error: bool = False
     timer: Timer = field(default_factory=Timer)
+    validator: AdapterOutputValidator = field(default_factory=AdapterOutputValidator)
 
     def run(self) -> RunResult:
         images = tuple(self.data_source.iter_images())
@@ -35,9 +40,12 @@ class Runner:
             warmup_start_ns = self.timer.now_ns()
             try:
                 for _ in range(actual_warmup_iterations):
-                    self.adapter.predict(images[0])
+                    output = self.adapter.predict(images[0])
+                    self.validator.validate_or_raise(output)
             except AdapterExecutionError as e:
                 raise RunnerExecutionError(f"Adapter warmup failed: {e}") from e
+            except AdapterOutputValidationError as e:
+                raise RunnerExecutionError(f"Adapter warmup output validation failed: {e}") from e
             warmup_total_ns = self.timer.elapsed_ns(warmup_start_ns)
             run_end_ns = warmup_start_ns + warmup_total_ns
 
@@ -64,9 +72,29 @@ class Runner:
                     raise RunnerExecutionError(
                         f"Adapter execution failed for image {image.image_id}: {e}"
                     ) from e
+
                 continue
 
             run_end_ns = prediction_start_ns + elapsed_ns
+
+            try:
+                self.validator.validate_or_raise(output)
+            except AdapterOutputValidationError as e:
+                predictions.append(
+                    PredictionResult(
+                        image=image,
+                        output=None,
+                        timing=PredictionTiming(image_id=image.image_id, elapsed_ns=elapsed_ns),
+                        error=str(e),
+                        failure_kind=PredictionFailureKind.OUTPUT_VALIDATION,
+                    )
+                )
+                if not self.continue_on_error:
+                    raise RunnerExecutionError(
+                        f"Output validation failed for image {image.image_id}: {e}"
+                    ) from e
+                continue
+
             predictions.append(
                 PredictionResult(
                     image=image,
