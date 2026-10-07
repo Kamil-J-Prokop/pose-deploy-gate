@@ -8,6 +8,7 @@ from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.data.datasource import FileDataSource
 from pose_deploy_gate.runner.exceptions import RunnerExecutionError
+from pose_deploy_gate.runner.result import PredictionFailureKind
 from pose_deploy_gate.runner.runner import Runner
 
 
@@ -278,6 +279,26 @@ def test_runner_failed_prediction_contains_error_message() -> None:
     result = runner.run()
 
     assert result.predictions[0].error == "prediction failed for image-001"
+
+
+def test_adapter_failure_is_classified() -> None:
+    images = (_image("failure"), _image("success"))
+    runner = Runner(
+        adapter=FakeAdapter(fail_on_image_ids={"failure"}),
+        data_source=FakeDataSource(images),
+        warmup_iterations=0,
+        continue_on_error=True,
+        timer=FakeTimer(),  # type: ignore[arg-type]
+    )
+    result = runner.run()
+    failure, success = result.predictions
+    assert failure.failure_kind is PredictionFailureKind.ADAPTER_EXECUTION
+    assert failure.error == "prediction failed for failure"
+    assert failure.output is None
+    assert failure.timing.elapsed_ns == 100
+    assert success.error is None
+    assert success.failure_kind is None
+    assert success.output is not None
 
 
 def test_runner_failed_prediction_has_no_output() -> None:

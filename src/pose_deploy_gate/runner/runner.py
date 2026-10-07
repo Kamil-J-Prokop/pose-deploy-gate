@@ -7,6 +7,7 @@ from pose_deploy_gate.adapters.exceptions import AdapterExecutionError
 from pose_deploy_gate.data.datasource import FileDataSource
 from pose_deploy_gate.runner.exceptions import RunnerExecutionError
 from pose_deploy_gate.runner.result import (
+    PredictionFailureKind,
     PredictionResult,
     PredictionTiming,
     RunResult,
@@ -56,6 +57,7 @@ class Runner:
                         output=None,
                         timing=PredictionTiming(image_id=image.image_id, elapsed_ns=elapsed_ns),
                         error=str(e),
+                        failure_kind=PredictionFailureKind.ADAPTER_EXECUTION,
                     )
                 )
                 if not self.continue_on_error:

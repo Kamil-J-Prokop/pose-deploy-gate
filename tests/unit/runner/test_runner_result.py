@@ -6,6 +6,7 @@ import pytest
 from pose_deploy_gate.adapters.schema import DUMMY_5_SCHEMA
 from pose_deploy_gate.adapters.types import AdapterOutput, ImageInput
 from pose_deploy_gate.runner.result import (
+    PredictionFailureKind,
     PredictionResult,
     PredictionTiming,
     RunResult,
@@ -25,9 +26,10 @@ def _prediction(
 ) -> PredictionResult:
     return PredictionResult(
         image=_image(image_id),
-        output=None if error else AdapterOutput(schema=DUMMY_5_SCHEMA, poses=()),
+        output=None if error is not None else AdapterOutput(schema=DUMMY_5_SCHEMA, poses=()),
         timing=PredictionTiming(image_id=image_id, elapsed_ns=elapsed_ns),
         error=error,
+        failure_kind=PredictionFailureKind.ADAPTER_EXECUTION if error is not None else None,
     )
 
 
@@ -105,3 +107,45 @@ def test_result_types_are_immutable() -> None:
 
     with pytest.raises(FrozenInstanceError):
         warmup.iterations = 2
+
+
+def test_success_has_no_failure_kind() -> None:
+    prediction = _prediction("success", 100)
+    assert prediction.error is None
+    assert prediction.failure_kind is None
+
+
+@pytest.mark.parametrize("error", ["adapter failed", ""])
+def test_failed_prediction_requires_failure_kind(error: str) -> None:
+    with pytest.raises(ValueError, match="error and failure_kind"):
+        PredictionResult(
+            image=_image("failure"),
+            output=None,
+            timing=PredictionTiming(image_id="failure", elapsed_ns=100),
+            error=error,
+        )
+
+
+@pytest.mark.parametrize("failure_kind", list(PredictionFailureKind))
+def test_success_rejects_failure_kind(failure_kind: PredictionFailureKind) -> None:
+    with pytest.raises(ValueError, match="error and failure_kind"):
+        PredictionResult(
+            image=_image("success"),
+            output=AdapterOutput(schema=DUMMY_5_SCHEMA, poses=()),
+            timing=PredictionTiming(image_id="success", elapsed_ns=100),
+            failure_kind=failure_kind,
+        )
+
+
+@pytest.mark.parametrize("failure_kind", list(PredictionFailureKind))
+@pytest.mark.parametrize("error", ["prediction failed", ""])
+def test_accepts_classified_failure(error: str, failure_kind: PredictionFailureKind) -> None:
+    prediction = PredictionResult(
+        image=_image("failure"),
+        output=None,
+        timing=PredictionTiming(image_id="failure", elapsed_ns=100),
+        error=error,
+        failure_kind=failure_kind,
+    )
+    assert prediction.error == error
+    assert prediction.failure_kind is failure_kind
