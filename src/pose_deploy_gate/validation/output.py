@@ -7,7 +7,26 @@ from pose_deploy_gate.validation.issues import OutputValidationCode, OutputValid
 
 
 class AdapterOutputValidator:
-    """Collect coordinate and confidence issues across an adapter output."""
+    """Collect schema, coordinate, and confidence issues across an adapter output."""
+
+    def validate_schema(self, output: AdapterOutput) -> list[OutputValidationIssue]:
+        """Return issues for keypoint names that differ from the declared schema."""
+        issues: list[OutputValidationIssue] = []
+        expected_names = output.schema.keypoint_names
+
+        for pose_index, pose in enumerate(output.poses):
+            actual_names = tuple(keypoint.name for keypoint in pose.keypoints)
+            if actual_names != expected_names:
+                issues.append(
+                    OutputValidationIssue(
+                        path=f"poses[{pose_index}].keypoints",
+                        code=OutputValidationCode.KEYPOINT_SCHEMA_MISMATCH,
+                        message=(
+                            f"expected keypoint names {expected_names!r}, got {actual_names!r}"
+                        ),
+                    )
+                )
+        return issues
 
     def validate_confidence(self, output: AdapterOutput) -> list[OutputValidationIssue]:
         """Return confidence issues for every pose and keypoint."""

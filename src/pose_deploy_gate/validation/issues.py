@@ -13,6 +13,7 @@ class OutputValidationCode(StrEnum):
     VISIBLE_MISSING_KEYPOINT = "visible_missing_keypoint"
     CONFIDENCE_OUT_OF_RANGE = "confidence_out_of_range"
     NON_FINITE_CONFIDENCE = "non_finite_confidence"
+    KEYPOINT_SCHEMA_MISMATCH = "keypoint_schema_mismatch"
 
 
 @dataclass(frozen=True)
