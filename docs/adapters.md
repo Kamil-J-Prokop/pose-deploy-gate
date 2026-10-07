@@ -32,7 +32,7 @@ dependencies in CI.
 
 ## Supported Adapter
 
-The only built-in adapter in `v0.3.0` is `dummy`.
+The only built-in adapter in the v0.7 development milestone is `dummy`.
 
 `DummyAdapter` is a deterministic fake adapter used for:
 
@@ -76,6 +76,7 @@ tensors.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
+| `schema` | `KeypointSchema` | Declared keypoint names and their exact order for every pose. |
 | `poses` | `tuple[PosePrediction, ...]` | Zero or more predicted people for the image. |
 | `metadata` | `Mapping[str, Any]` | Adapter-specific metadata for debugging or reporting. |
 
@@ -83,7 +84,8 @@ Each `PosePrediction` contains:
 
 - `keypoints`: `tuple[Keypoint, ...]`
 - `confidence`: overall pose confidence
-- `person_id`: optional stable identifier for the predicted person
+- `person_id`: optional non-empty identifier, unique within this image's output;
+  the same ID can appear in outputs for other images
 
 Each `Keypoint` contains:
 
@@ -93,9 +95,27 @@ Each `Keypoint` contains:
 - `confidence`: optional confidence for that keypoint
 - `visible`: optional visibility flag
 
-The current dummy adapter returns normalized coordinates in the `[0.0, 1.0]`
-range, but the interface does not yet define a project-wide coordinate system
-beyond the field names above. That stricter schema is intentionally deferred.
+The [normalized output contract](output-contract.md) defines the rules enforced
+in v0.7:
+
+- Coordinates are finite and normalized to `[0, 1]` relative to the original
+  input image, with a top-left origin, positive x right, and positive y down.
+- Missing keypoints retain their declared name and position with `x=None` and
+  `y=None`. They cannot have `visible=True`.
+- Every pose contains exactly `schema.keypoint_names` in deterministic order.
+- Pose and keypoint confidence are optional; supplied values are finite and
+  within `[0, 1]`.
+- Zero or more poses are valid. Non-`None` person IDs are non-empty and unique
+  within one output, and may repeat across images.
+
+Adapters must convert native runtime output into this contract, including
+undoing crop, resize, or padding transforms. The PDG validator checks supplied
+values and structure; it does not perform model-specific normalization.
+
+`DummyAdapter` declares `DUMMY_5_SCHEMA`. `COCO_17_SCHEMA` and custom
+`KeypointSchema` instances are also available. A declared schema defines names
+and order; it does not require every adapter to share one universal taxonomy.
+v0.8 reference comparison will only compare outputs whose schemas match.
 
 ## Example Config
 
@@ -133,8 +153,7 @@ See also:
 
 ## Intentionally Out Of Scope
 
-This milestone adds the adapter interface and one deterministic built-in
-adapter, but it does not yet define:
+The adapter interface and normalized output contract do not yet define:
 
 - a plugin or import-path based adapter loading system
 - a canonical body-keypoint taxonomy shared by all runtimes
@@ -143,8 +162,7 @@ adapter, but it does not yet define:
 - report schema requirements for adapter metadata
 - any production pose-model integration
 
-Those pieces are easier to finalize once the runner, metrics, and report
-pipeline exist.
+These remain future work beyond the v0.7 normalized output contract.
 
 ## Future Adapter Examples
 
@@ -155,6 +173,6 @@ Likely future adapters include:
 - a Torch-based custom checkpoint adapter
 - a remote inference service adapter
 
-Those are examples only. They are not implemented in `v0.3.0`, and this
+Those are examples only. They are not implemented in the v0.7 milestone, and this
 document should not be read as a compatibility promise for any specific
 runtime.

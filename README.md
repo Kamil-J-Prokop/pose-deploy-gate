@@ -23,8 +23,9 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ## Current status
 
-The `v0.6.0` development milestone adds deployment-oriented latency and
-prediction-error metrics derived from config-driven runner results.
+The `v0.7.0` development milestone adds a validated normalized adapter output
+contract on top of the v0.6 latency and prediction-error metrics. The runner
+rejects invalid predictions before accepting them as successful results.
 
 Implemented so far:
 
@@ -49,12 +50,19 @@ Implemented so far:
 - deployment-oriented minimum, mean, P50, P95, P99, and maximum latency metrics
 - prediction success, failure, and error-rate metrics
 - CLI run summaries with latency and reliability metrics
+- declared keypoint schemas with exact name and ordering validation
+- normalized coordinate, missing-keypoint, confidence, and person-ID validation
+- validation of every warmup output and measured prediction
+- separate adapter execution and output validation failure counts in the CLI
 
-This milestone provides a stable metrics boundary for upcoming validation,
-gate, and reporting work.
+Validation failures count toward error rate and are excluded from latency
+samples. Inference timing is captured before validation. Adapters are
+responsible for normalizing their native outputs; the validator checks the
+resulting contract.
 
 Config documentation is in [docs/config.md](docs/config.md).
 Adapter documentation is in [docs/adapters.md](docs/adapters.md).
+The normalized output contract is in [docs/output-contract.md](docs/output-contract.md).
 Data source documentation is in [docs/data.md](docs/data.md).
 Runner and timing documentation is in [docs/runner.md](docs/runner.md).
 Metric semantics are documented in [docs/metrics.md](docs/metrics.md).
@@ -125,7 +133,7 @@ CI currently verifies:
 
 ## Roadmap
 
-Implemented through the `v0.6.0` development milestone:
+Implemented through the `v0.7.0` development milestone:
 
 - adapter interface
 - deterministic dummy adapter
@@ -136,10 +144,13 @@ Implemented through the `v0.6.0` development milestone:
 - deployment-oriented latency metrics
 - prediction error-rate metrics
 - CLI latency and reliability summary
+- normalized output contract and runner validation
+- classified adapter execution and output validation failures
 
 Planned next steps:
 
-- output validation and gate evaluation
+- schema-matched reference comparison in v0.8
+- gate evaluation
 - report generation and CI artifacts
 
 ## License
