@@ -7,7 +7,35 @@ from pose_deploy_gate.validation.issues import OutputValidationCode, OutputValid
 
 
 class AdapterOutputValidator:
-    """Collect schema, coordinate, and confidence issues across an adapter output."""
+    """Collect schema, identity, coordinate, and confidence issues across an adapter output."""
+
+    def validate_person_ids(self, output: AdapterOutput) -> list[OutputValidationIssue]:
+        """Return issues for empty or duplicate person IDs within one output."""
+        issues: list[OutputValidationIssue] = []
+        seen_ids: set[str] = set()
+        for pose_index, pose in enumerate(output.poses):
+            if pose.person_id is None:
+                continue
+            path = f"poses[{pose_index}].person_id"
+            if pose.person_id == "":
+                issues.append(
+                    OutputValidationIssue(
+                        path=path,
+                        code=OutputValidationCode.EMPTY_PERSON_ID,
+                        message="expected a non-empty person ID",
+                    )
+                )
+            elif pose.person_id in seen_ids:
+                issues.append(
+                    OutputValidationIssue(
+                        path=path,
+                        code=OutputValidationCode.DUPLICATE_PERSON_ID,
+                        message=f"duplicate person ID {pose.person_id!r}",
+                    )
+                )
+            else:
+                seen_ids.add(pose.person_id)
+        return issues
 
     def validate_schema(self, output: AdapterOutput) -> list[OutputValidationIssue]:
         """Return issues for keypoint names that differ from the declared schema."""

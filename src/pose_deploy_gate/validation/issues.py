@@ -14,6 +14,8 @@ class OutputValidationCode(StrEnum):
     CONFIDENCE_OUT_OF_RANGE = "confidence_out_of_range"
     NON_FINITE_CONFIDENCE = "non_finite_confidence"
     KEYPOINT_SCHEMA_MISMATCH = "keypoint_schema_mismatch"
+    EMPTY_PERSON_ID = "empty_person_id"
+    DUPLICATE_PERSON_ID = "duplicate_person_id"
 
 
 @dataclass(frozen=True)
