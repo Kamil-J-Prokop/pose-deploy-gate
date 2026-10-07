@@ -60,6 +60,7 @@ samples. Inference timing is captured before validation. Adapters are
 responsible for normalizing their native outputs; the validator checks the
 resulting contract.
 
+Start with the [architecture overview](docs/architecture.md) for the pipeline and layer boundaries.
 Config documentation is in [docs/config.md](docs/config.md).
 Adapter documentation is in [docs/adapters.md](docs/adapters.md).
 The normalized output contract is in [docs/output-contract.md](docs/output-contract.md).
