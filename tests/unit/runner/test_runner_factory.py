@@ -1,81 +1,49 @@
 from pathlib import Path
 
-from pose_deploy_gate.config import AppConfig
-from pose_deploy_gate.runner import create_runner
-from pose_deploy_gate.runner.runner import Runner
+import pytest
+
+from pose_deploy_gate.config.models import DataConfig, ModelConfig, RunnerConfig
+from pose_deploy_gate.runner import Runner, create_model_runner
 
 
-def test_create_runner_returns_runner(tmp_path: Path) -> None:
-    config = AppConfig(
-        version=1,
-        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
-        data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
-        runner={"warmup_iterations": 5, "continue_on_error": True},
+@pytest.mark.parametrize("warmup_iterations,continue_on_error", [(0, False), (5, True)])
+def test_create_model_runners_use_requested_models_and_shared_settings(
+    tmp_path: Path, warmup_iterations: int, continue_on_error: bool
+) -> None:
+    models = [
+        ModelConfig(
+            id=model_id,
+            adapter={"type": "dummy", "params": {"pose_confidence": confidence}},
+        )
+        for model_id, confidence in [("reference", 0.9), ("candidate", 0.6)]
+    ]
+    data_config = DataConfig(input_dir=tmp_path, file_pattern="*.jpg", recursive=True)
+    runner_config = RunnerConfig(
+        warmup_iterations=warmup_iterations, continue_on_error=continue_on_error
     )
+    runners = [
+        create_model_runner(model, data_config=data_config, runner_config=runner_config)
+        for model in models
+    ]
 
-    runner = create_runner(config)
-
-    assert isinstance(runner, Runner)
-
-
-def test_create_runner_uses_adapter_config(tmp_path: Path) -> None:
-    config = AppConfig(
-        version=1,
-        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
-        data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
-        runner={"warmup_iterations": 5, "continue_on_error": True},
-    )
-
-    runner = create_runner(config)
-
-    assert runner.adapter.pose_confidence == 0.75
+    assert runners[0].adapter is not runners[1].adapter
+    assert runners[0].adapter.pose_confidence == 0.9
+    assert runners[1].adapter.pose_confidence == 0.6
+    for runner in runners:
+        assert isinstance(runner, Runner)
+        assert runner.data_source.input_dir == data_config.input_dir
+        assert runner.data_source.file_pattern == data_config.file_pattern
+        assert runner.data_source.recursive == data_config.recursive
+        assert runner.warmup_iterations == warmup_iterations
+        assert runner.continue_on_error == continue_on_error
 
 
-def test_create_runner_uses_data_config(tmp_path: Path) -> None:
-    config = AppConfig(
-        version=1,
-        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
-        data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
-        runner={"warmup_iterations": 5, "continue_on_error": True},
-    )
-
-    runner = create_runner(config)
-
-    assert runner.data_source.input_dir == tmp_path
-    assert runner.data_source.file_pattern == "*.jpg"
-    assert runner.data_source.recursive is True
-
-
-def test_create_runner_uses_runner_config(tmp_path: Path) -> None:
-    config = AppConfig(
-        version=1,
-        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
-        data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
-        runner={"warmup_iterations": 5, "continue_on_error": True},
-    )
-
-    runner = create_runner(config)
-
-    assert runner.warmup_iterations == 5
-    assert runner.continue_on_error is True
-
-
-def test_create_runner_rejects_multiple_models_before_construction(tmp_path, monkeypatch):
-    import pytest
-
-    from pose_deploy_gate.runner import RunnerError
-
-    config = AppConfig(
-        version=1,
-        data={"input_dir": tmp_path},
-        models=[{"id": model_id, "adapter": {"type": "dummy"}} for model_id in ("a", "b")],
-    )
-
-    def unexpected_adapter_creation(*args):
-        pytest.fail("No adapter should be constructed for unsupported multi-model execution")
-
-    monkeypatch.setattr(
-        "pose_deploy_gate.runner.factory.create_adapter", unexpected_adapter_creation
-    )
-    with pytest.raises(RunnerError, match="exactly one configured model"):
-        create_runner(config)
+def test_repeated_creation_for_same_model_uses_separate_adapters(tmp_path: Path) -> None:
+    model = ModelConfig(id="model", adapter={"type": "dummy"})
+    data_config = DataConfig(input_dir=tmp_path)
+    runner_config = RunnerConfig()
+    first = create_model_runner(model, data_config=data_config, runner_config=runner_config)
+    second = create_model_runner(model, data_config=data_config, runner_config=runner_config)
+    assert first.adapter is not second.adapter
+    assert first.warmup_iterations == second.warmup_iterations == 3
+    assert first.continue_on_error is second.continue_on_error is False

@@ -15,7 +15,7 @@ The data-source implementation is `FileDataSource`; there is no separate
 ```mermaid
 flowchart TD
     YAML["YAML config"] --> Load["load_config()"] --> Config["AppConfig"]
-    Config --> Factory["create_runner()"]
+    Config --> Factory["create_model_runner()"]
     Factory -.-> Runner
     Factory -. "create_data_source()" .-> DS["FileDataSource"]
     Factory -. "create_adapter()" .-> Adapter["PoseAdapter / DummyAdapter"]
@@ -64,7 +64,7 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 | Component | Responsibility | Input | Output |
 | --- | --- | --- | --- |
 | `config/loader.py`: `load_config` | Validate path, parse YAML, validate Pydantic schema and application rules. | Config path | `AppConfig` |
-| `runner/factory.py`: `create_runner` | Construct adapter, data source, and runner with configured policies. | `AppConfig` | `Runner` |
+| `runner/factory.py`: `create_model_runner` | Construct adapter, data source, and runner with configured policies. | `ModelConfig`, `DataConfig`, `RunnerConfig` | `Runner` |
 | `data/datasource.py`: `FileDataSource` | Discover matching files in deterministic relative-path order. | `DataConfig` | Iterator of `ImageInput` |
 | `adapters/base.py`: `PoseAdapter` | Define `name` and `predict(image)`; implementation performs inference and normalization. | `ImageInput` | `AdapterOutput` |
 | `validation/output.py`: `AdapterOutputValidator` | Check schema order, coordinates, visibility, confidence, and per-output person IDs. | `AdapterOutput` | Issue tuple or `AdapterOutputValidationError` |
@@ -76,7 +76,7 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 
 1. `python -m pose_deploy_gate --config ...` enters `cli.main()`;
    `load_config()` returns a validated `AppConfig`.
-2. `create_runner()` uses `create_adapter()` and `create_data_source()`; Runner
+2. `create_model_runner()` uses `create_adapter()` and `create_data_source()`; Runner
    supplies default `Timer` and `AdapterOutputValidator` instances.
 3. `Runner.run()` materializes `iter_images()` into an ordered tuple before
    starting the run timer. File discovery raises if no matching inputs exist.

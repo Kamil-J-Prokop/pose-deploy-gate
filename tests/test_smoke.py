@@ -185,8 +185,8 @@ def test_cli_config_returns_error_when_runner_fails(
             raise RunnerExecutionError("runner failed")
 
     monkeypatch.setattr(
-        "pose_deploy_gate.cli.create_runner",
-        lambda config: FailingRunner(),
+        "pose_deploy_gate.cli.create_model_runner",
+        lambda model, **kwargs: FailingRunner(),
     )
     args = _config_args(tmp_path, image_fixtures_dir)
 
@@ -216,10 +216,10 @@ def test_cli_multiple_models_returns_actionable_error(tmp_path, capsys, monkeypa
         encoding="utf-8",
     )
 
-    def unexpected_runner_creation(*args):
+    def unexpected_runner_creation(*args, **kwargs):
         pytest.fail("Multi-model CLI execution must stop before creating a runner")
 
-    monkeypatch.setattr("pose_deploy_gate.cli.create_runner", unexpected_runner_creation)
+    monkeypatch.setattr("pose_deploy_gate.cli.create_model_runner", unexpected_runner_creation)
     assert run(_args(config=config_path)) == 2
     output = capsys.readouterr().out
     assert "ERROR: Execution currently requires exactly one configured model" in output

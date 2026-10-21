@@ -11,7 +11,12 @@ from pose_deploy_gate.config import load_config
 from pose_deploy_gate.config.exceptions import ConfigError
 from pose_deploy_gate.data import DataSourceError
 from pose_deploy_gate.metrics import MetricsEngine
-from pose_deploy_gate.runner import PredictionFailureKind, RunnerError, create_runner, ns_to_ms
+from pose_deploy_gate.runner import (
+    PredictionFailureKind,
+    RunnerError,
+    create_model_runner,
+    ns_to_ms,
+)
 
 
 def _format_latency_ns(value: float | int | None) -> str:
@@ -89,7 +94,9 @@ def run(args: argparse.Namespace) -> int:
         print(f"Gates enabled: {config.gates.enabled}")
 
         try:
-            runner = create_runner(config)
+            runner = create_model_runner(
+                config.models[0], data_config=config.data, runner_config=config.runner
+            )
             result = runner.run()
 
         except AdapterError as exc:

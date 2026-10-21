@@ -8,7 +8,7 @@ from pose_deploy_gate.runner import (
     RunResult,
     Timer,
     WarmupResult,
-    create_runner,
+    create_model_runner,
     ns_to_ms,
 )
 
@@ -23,5 +23,5 @@ def test_runner_public_api_imports_expected_symbols() -> None:
     assert RunnerExecutionError is not None
     assert Timer is not None
     assert WarmupResult is not None
-    assert create_runner is not None
+    assert create_model_runner is not None
     assert ns_to_ms is not None

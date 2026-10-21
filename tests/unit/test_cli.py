@@ -59,9 +59,12 @@ def _run_cli(
         models=(SimpleNamespace(id="dummy", adapter=SimpleNamespace(type="dummy")),),
         output=SimpleNamespace(dir=tmp_path / "output"),
         gates=SimpleNamespace(enabled=True),
+        runner=SimpleNamespace(warmup_iterations=3, continue_on_error=False),
     )
     monkeypatch.setattr("pose_deploy_gate.cli.load_config", lambda path: config)
-    monkeypatch.setattr("pose_deploy_gate.cli.create_runner", lambda config: FakeRunner())
+    monkeypatch.setattr(
+        "pose_deploy_gate.cli.create_model_runner", lambda model, **kwargs: FakeRunner()
+    )
     args = Namespace(
         config=tmp_path / "config.yaml",
         input=None,
@@ -241,9 +244,10 @@ def test_cli_reports_actionable_fail_fast_validation_error(monkeypatch, capsys, 
         models=(SimpleNamespace(id="dummy", adapter=SimpleNamespace(type="dummy")),),
         output=SimpleNamespace(dir=tmp_path / "output"),
         gates=SimpleNamespace(enabled=True),
+        runner=SimpleNamespace(warmup_iterations=3, continue_on_error=False),
     )
     monkeypatch.setattr("pose_deploy_gate.cli.load_config", lambda path: config)
-    monkeypatch.setattr("pose_deploy_gate.cli.create_runner", lambda config: runner)
+    monkeypatch.setattr("pose_deploy_gate.cli.create_model_runner", lambda model, **kwargs: runner)
     args = Namespace(config=tmp_path / "config.yaml", input=None, strict=False, list_inputs=False)
     assert run(args) == 2
     output = capsys.readouterr().out
