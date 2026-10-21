@@ -8,7 +8,7 @@ from pose_deploy_gate.runner.runner import Runner
 def test_create_runner_returns_runner(tmp_path: Path) -> None:
     config = AppConfig(
         version=1,
-        adapter={"type": "dummy", "params": {"pose_confidence": 0.75}},
+        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
         data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
         runner={"warmup_iterations": 5, "continue_on_error": True},
     )
@@ -21,7 +21,7 @@ def test_create_runner_returns_runner(tmp_path: Path) -> None:
 def test_create_runner_uses_adapter_config(tmp_path: Path) -> None:
     config = AppConfig(
         version=1,
-        adapter={"type": "dummy", "params": {"pose_confidence": 0.75}},
+        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
         data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
         runner={"warmup_iterations": 5, "continue_on_error": True},
     )
@@ -34,7 +34,7 @@ def test_create_runner_uses_adapter_config(tmp_path: Path) -> None:
 def test_create_runner_uses_data_config(tmp_path: Path) -> None:
     config = AppConfig(
         version=1,
-        adapter={"type": "dummy", "params": {"pose_confidence": 0.75}},
+        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
         data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
         runner={"warmup_iterations": 5, "continue_on_error": True},
     )
@@ -49,7 +49,7 @@ def test_create_runner_uses_data_config(tmp_path: Path) -> None:
 def test_create_runner_uses_runner_config(tmp_path: Path) -> None:
     config = AppConfig(
         version=1,
-        adapter={"type": "dummy", "params": {"pose_confidence": 0.75}},
+        models=[{"id": "dummy", "adapter": {"type": "dummy", "params": {"pose_confidence": 0.75}}}],
         data={"input_dir": tmp_path, "file_pattern": "*.jpg", "recursive": True},
         runner={"warmup_iterations": 5, "continue_on_error": True},
     )
@@ -58,3 +58,24 @@ def test_create_runner_uses_runner_config(tmp_path: Path) -> None:
 
     assert runner.warmup_iterations == 5
     assert runner.continue_on_error is True
+
+
+def test_create_runner_rejects_multiple_models_before_construction(tmp_path, monkeypatch):
+    import pytest
+
+    from pose_deploy_gate.runner import RunnerError
+
+    config = AppConfig(
+        version=1,
+        data={"input_dir": tmp_path},
+        models=[{"id": model_id, "adapter": {"type": "dummy"}} for model_id in ("a", "b")],
+    )
+
+    def unexpected_adapter_creation(*args):
+        pytest.fail("No adapter should be constructed for unsupported multi-model execution")
+
+    monkeypatch.setattr(
+        "pose_deploy_gate.runner.factory.create_adapter", unexpected_adapter_creation
+    )
+    with pytest.raises(RunnerError, match="exactly one configured model"):
+        create_runner(config)

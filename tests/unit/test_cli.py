@@ -56,7 +56,7 @@ def _run_cli(
     config = SimpleNamespace(
         run=SimpleNamespace(name="test-run"),
         data=SimpleNamespace(input_dir=tmp_path),
-        adapter=SimpleNamespace(type="dummy"),
+        models=(SimpleNamespace(id="dummy", adapter=SimpleNamespace(type="dummy")),),
         output=SimpleNamespace(dir=tmp_path / "output"),
         gates=SimpleNamespace(enabled=True),
     )
@@ -238,7 +238,7 @@ def test_cli_reports_actionable_fail_fast_validation_error(monkeypatch, capsys, 
     config = SimpleNamespace(
         run=SimpleNamespace(name="test-run"),
         data=SimpleNamespace(input_dir=tmp_path),
-        adapter=SimpleNamespace(type="dummy"),
+        models=(SimpleNamespace(id="dummy", adapter=SimpleNamespace(type="dummy")),),
         output=SimpleNamespace(dir=tmp_path / "output"),
         gates=SimpleNamespace(enabled=True),
     )

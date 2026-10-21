@@ -12,9 +12,11 @@ data:
   file_pattern: "*.jpg"
   recursive: false
 
-adapter:
-  type: "dummy"
-  params: {}
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
+      params: {}
 
 output:
   dir: "./artifacts"

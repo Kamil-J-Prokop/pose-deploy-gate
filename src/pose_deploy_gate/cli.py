@@ -78,7 +78,13 @@ def run(args: argparse.Namespace) -> int:
         print(f"Config path: {args.config.resolve()}")
         print(f"Run name: {config.run.name}")
         print(f"Input directory: {config.data.input_dir.resolve()}")
-        print(f"Adapter: {config.adapter.type}")
+        if len(config.models) != 1:
+            print(
+                "ERROR: Execution currently requires exactly one configured model; multi-model execution is not implemented yet."
+            )
+            return 2
+        print(f"Model: {config.models[0].id}")
+        print(f"Adapter: {config.models[0].adapter.type}")
         print(f"Output directory: {config.output.dir}")
         print(f"Gates enabled: {config.gates.enabled}")
 

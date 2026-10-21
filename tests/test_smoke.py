@@ -47,8 +47,10 @@ def _config_args(
                 f'  input_dir: "{input_dir}"',
                 *data_options,
                 "",
-                "adapter:",
-                '  type: "dummy"',
+                "models:",
+                "  - id: dummy",
+                "    adapter:",
+                '      type: "dummy"',
                 "",
             ]
         ),
@@ -202,4 +204,24 @@ def test_run_with_invalid_config_path(tmp_path: Path, capsys: pytest.CaptureFixt
 
     output = capsys.readouterr().out
     assert output == f"ERROR: Config file does not exist: {config_path}\n"
+    assert "PoseDeployGate run completed." not in output
+
+
+def test_cli_multiple_models_returns_actionable_error(tmp_path, capsys, monkeypatch):
+    config_path = tmp_path / "models.yaml"
+    config_path.write_text(
+        'version: 1\ndata:\n  input_dir: "."\nmodels:\n'
+        "  - id: a\n    adapter:\n      type: dummy\n"
+        "  - id: b\n    adapter:\n      type: dummy\n",
+        encoding="utf-8",
+    )
+
+    def unexpected_runner_creation(*args):
+        pytest.fail("Multi-model CLI execution must stop before creating a runner")
+
+    monkeypatch.setattr("pose_deploy_gate.cli.create_runner", unexpected_runner_creation)
+    assert run(_args(config=config_path)) == 2
+    output = capsys.readouterr().out
+    assert "ERROR: Execution currently requires exactly one configured model" in output
+    assert "multi-model execution is not implemented yet" in output
     assert "PoseDeployGate run completed." not in output

@@ -78,7 +78,7 @@ def test_dummy_adapter_with_params_from_config(tmp_path: Path):
 
     image = ImageInput(image_id="image-001", path=Path("/tmp/frame.jpg"))
     config = load_config(config_path)
-    adapter = DummyAdapter(**config.adapter.params)
+    adapter = DummyAdapter(**config.models[0].adapter.params)
 
     output = adapter.predict(image)
 

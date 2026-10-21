@@ -127,8 +127,10 @@ version: 1
 data:
   input_dir: "."
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
 ```
 
 Config with explicit dummy parameters:
@@ -139,11 +141,13 @@ version: 1
 data:
   input_dir: "./data"
 
-adapter:
-  type: "dummy"
-  params:
-    keypoint_confidence: 0.9
-    pose_confidence: 0.8
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
+      params:
+        keypoint_confidence: 0.9
+        pose_confidence: 0.8
 ```
 
 See also:

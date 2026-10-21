@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class StrictBaseModel(BaseModel):
@@ -25,6 +25,18 @@ class AdapterConfig(StrictBaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class ModelConfig(StrictBaseModel):
+    id: str
+    adapter: AdapterConfig
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, model_id: str) -> str:
+        if not model_id.strip():
+            raise ValueError("model ID must not be blank")
+        return model_id
+
+
 class OutputConfig(StrictBaseModel):
     dir: Path = Path("./artifacts")
 
@@ -43,7 +55,15 @@ class AppConfig(StrictBaseModel):
 
     run: RunConfig = Field(default_factory=RunConfig)
     data: DataConfig
-    adapter: AdapterConfig
+    models: tuple[ModelConfig, ...] = Field(min_length=1)
     output: OutputConfig = Field(default_factory=OutputConfig)
     gates: GatesConfig = Field(default_factory=GatesConfig)
     runner: RunnerConfig = Field(default_factory=RunnerConfig)
+
+    @field_validator("models")
+    @classmethod
+    def validate_model_ids(cls, models: tuple[ModelConfig, ...]) -> tuple[ModelConfig, ...]:
+        ids = [model.id for model in models]
+        if len(ids) != len(set(ids)):
+            raise ValueError("model IDs must be unique")
+        return models

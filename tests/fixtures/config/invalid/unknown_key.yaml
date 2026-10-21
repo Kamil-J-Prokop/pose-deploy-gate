@@ -8,5 +8,7 @@ unexpected: true
 data:
   input_dir: "./data"
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"

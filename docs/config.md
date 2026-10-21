@@ -1,7 +1,7 @@
 # Config Reference
 
 PoseDeployGate uses a YAML config file to describe an evaluation run: where
-input data comes from, which adapter to use, where outputs should be written,
+input data comes from, which named models to configure, where outputs should be written,
 and whether deployment gates are enabled.
 
 ## Loading
@@ -28,11 +28,10 @@ Print the deterministic input list discovered from that config:
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml --list-inputs
 ```
 
-The command loads the YAML file, applies schema defaults, validates the config,
-creates the adapter and data source, and executes the runner. A successful run
-prints the resolved config, prediction counts, and timing summary before
-exiting with `0`. Config, adapter, data source, and runner failures print an
-`ERROR:` message and exit with a non-zero code.
+The configuration schema supports one or more named models. The CLI and runner
+currently execute configs containing exactly one model. Configs containing
+multiple models load successfully through `load_config`, but CLI execution returns
+a clear error with exit code `2` until multi-model execution is implemented.
 
 ## Minimal Example
 
@@ -47,8 +46,10 @@ version: 1
 data:
   input_dir: "."
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
 ```
 
 ## Full Example
@@ -87,12 +88,21 @@ Data source iteration is deterministic:
 - ordering is based on the relative POSIX path from `data.input_dir`
 - emitted `image_id` values are relative paths without the file suffix
 
-### `adapter`
+### `models`
+
+`models` is required and must contain at least one model. Python parses the list
+as `tuple[ModelConfig, ...]`, preserving configured order. IDs must be non-blank
+and unique by exact string equality. Values are never trimmed or lowercased:
+`model-a` and `Model-A` are distinct IDs. A single model is valid for profiling.
+Models have no roles or comparison semantics at this stage.
+The legacy top-level `adapter:` syntax is rejected.
 
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `adapter.type` | Yes | literal `dummy` | none | Only the dummy adapter is currently supported. |
-| `adapter.params` | No | mapping | `{}` | Adapter-specific parameters. |
+| `models[].id` | Yes | string | none | Unique, non-blank model ID. |
+| `models[].adapter` | Yes | mapping | none | Adapter configuration for this model. |
+| `models[].adapter.type` | Yes | literal `dummy` | none | Only the dummy adapter is currently supported. |
+| `models[].adapter.params` | No | mapping | `{}` | Adapter-specific parameters. |
 
 ### `runner`
 
@@ -133,6 +143,7 @@ empty `run.name`, empty `data.file_pattern`, and negative `run.seed`.
 ## Example Files
 
 - Minimal example: [config.minimal.yaml](examples/config.minimal.yaml)
+- Multiple models: [config.multiple-models.yaml](examples/config.multiple-models.yaml)
 - Runner example: [config.runner.yaml](examples/config.runner.yaml)
 - Full example: [config.full.yaml](examples/config.full.yaml)
 - Recursive JPEG example: [config.recursive.yaml](examples/config.recursive.yaml)

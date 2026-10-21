@@ -49,8 +49,10 @@ data:
   file_pattern: "*.jpg"
   recursive: true
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
 ```
 
 ## CLI Behavior

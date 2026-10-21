@@ -62,8 +62,10 @@ version: 1
 data:
   input_dir: "{input_dir}"
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
 """.strip(),
         encoding="utf-8",
     )
@@ -77,7 +79,7 @@ adapter:
 
     assert config.version == 1
     assert config.data.input_dir == input_dir
-    assert config.adapter.type == "dummy"
+    assert config.models[0].adapter.type == "dummy"
     assert config.run.name == "default-run"
 
 
