@@ -21,6 +21,39 @@ The goal is to support model selection under deployment constraints such as:
 
 The project focuses on closing the gap between research-grade metrics and production deployment decisions.
 
+## Example output
+
+```
+PoseDeployGate config validation successful.
+Config path: /home/kamil/workspace/pose-deploy-gate/docs/examples/config.runner.yaml
+Run name: default-run
+Input directory: /home/kamil/workspace/pose-deploy-gate
+Adapter: dummy
+Output directory: artifacts
+Gates enabled: False
+PoseDeployGate run completed.
+Input files: 6
+Warmup iterations: 3
+
+Latency:
+  Samples: 6
+  Min: 0.030 ms
+  Mean: 0.038 ms
+  P50: 0.034 ms
+  P95: 0.059 ms
+  P99: 0.059 ms
+  Max: 0.059 ms
+
+Reliability:
+  Successful predictions: 6
+  Failed predictions: 0
+    Adapter execution failures: 0
+    Output validation failures: 0
+  Error rate: 0.00%
+
+Total runner time: 0.832 ms
+```
+
 ## Current status
 
 The `v0.7.0` development milestone adds a validated normalized adapter output
