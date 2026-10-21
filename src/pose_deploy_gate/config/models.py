@@ -50,6 +50,16 @@ class RunnerConfig(StrictBaseModel):
     continue_on_error: bool = False
 
 
+class ComparisonConfig(StrictBaseModel):
+    schema_mode: Literal["strict", "common"] = "common"
+    coordinate_space: Literal["image_2d_normalized"] = "image_2d_normalized"
+    distance_metric: Literal["normalized_euclidean_2d"] = "normalized_euclidean_2d"
+    min_common_keypoints: int = Field(default=3, ge=1)
+    min_pose_shared_keypoints: int = Field(default=3, ge=1)
+    min_pose_shared_fraction: float = Field(default=0.5, gt=0, le=1)
+    max_pose_match_distance: float = Field(default=0.15, ge=0, le=1)
+
+
 class AppConfig(StrictBaseModel):
     version: Literal[1]
 
@@ -59,6 +69,7 @@ class AppConfig(StrictBaseModel):
     output: OutputConfig = Field(default_factory=OutputConfig)
     gates: GatesConfig = Field(default_factory=GatesConfig)
     runner: RunnerConfig = Field(default_factory=RunnerConfig)
+    comparison: ComparisonConfig = Field(default_factory=ComparisonConfig)
 
     @field_validator("models")
     @classmethod

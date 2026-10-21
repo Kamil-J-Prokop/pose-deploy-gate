@@ -114,6 +114,24 @@ The legacy top-level `adapter:` syntax is rejected.
 Warmup, timing boundaries, and failure behavior are documented in
 [docs/runner.md](runner.md).
 
+### `comparison`
+
+This optional section defines reference comparison settings. Omitting it uses
+the defaults below. These settings do not enable comparison execution yet.
+
+| Field | Type | Default | Bounds / permitted values |
+| --- | --- | --- | --- |
+| `comparison.schema_mode` | string | `common` | `strict` or `common` |
+| `comparison.coordinate_space` | string | `image_2d_normalized` | Only `image_2d_normalized` |
+| `comparison.distance_metric` | string | `normalized_euclidean_2d` | Only `normalized_euclidean_2d` |
+| `comparison.min_common_keypoints` | integer | `3` | At least `1` |
+| `comparison.min_pose_shared_keypoints` | integer | `3` | At least `1` |
+| `comparison.min_pose_shared_fraction` | float | `0.5` | Greater than `0`, at most `1` |
+| `comparison.max_pose_match_distance` | float | `0.15` | From `0` to `1`, inclusive |
+
+Coordinate space and distance metric are explicit so future 3D support can add
+new values without silently changing the meaning of existing configurations.
+
 ### `output`
 
 | Field | Required | Type | Default | Notes |

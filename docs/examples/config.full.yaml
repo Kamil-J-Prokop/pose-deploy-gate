@@ -27,3 +27,12 @@ gates:
 runner:
   warmup_iterations: 3
   continue_on_error: false
+
+comparison:
+  schema_mode: common
+  coordinate_space: image_2d_normalized
+  distance_metric: normalized_euclidean_2d
+  min_common_keypoints: 3
+  min_pose_shared_keypoints: 3
+  min_pose_shared_fraction: 0.5
+  max_pose_match_distance: 0.15
