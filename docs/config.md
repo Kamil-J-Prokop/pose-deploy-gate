@@ -117,7 +117,9 @@ Warmup, timing boundaries, and failure behavior are documented in
 ### `comparison`
 
 This optional section defines reference comparison settings. Omitting it uses
-the defaults below. These settings do not enable comparison execution yet.
+the defaults below. The library's `PoseMatcher` consumes these settings; CLI
+comparison execution is not connected yet. See [pose matching](comparison.md)
+for the assignment objective, threshold behavior, and missing-point semantics.
 
 | Field | Type | Default | Bounds / permitted values |
 | --- | --- | --- | --- |

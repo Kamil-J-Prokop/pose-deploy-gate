@@ -87,6 +87,7 @@ Implemented so far:
 - normalized coordinate, missing-keypoint, confidence, and person-ID validation
 - validation of every warmup output and measured prediction
 - separate adapter execution and output validation failure counts in the CLI
+- library API for optimal multi-person matching with configurable shared-point and distance requirements
 
 Validation failures count toward error rate and are excluded from latency
 samples. Inference timing is captured before validation. Adapters are
@@ -100,6 +101,7 @@ The normalized output contract is in [docs/output-contract.md](docs/output-contr
 Data source documentation is in [docs/data.md](docs/data.md).
 Runner and timing documentation is in [docs/runner.md](docs/runner.md).
 Metric semantics are documented in [docs/metrics.md](docs/metrics.md).
+Person assignment and missing-keypoint semantics are documented in [docs/comparison.md](docs/comparison.md).
 
 Example configs are in [docs/examples](docs/examples).
 

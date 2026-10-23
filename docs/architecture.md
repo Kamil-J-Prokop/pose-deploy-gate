@@ -3,7 +3,7 @@
 PoseDeployGate currently runs a config-driven, sequential pipeline: discover
 files, predict poses, validate outputs, then calculate latency and reliability
 metrics. `DummyAdapter` is the only registered adapter. Gate evaluation,
-reference comparison, and report writing are not implemented; `gates.enabled`
+reference comparison orchestration, and report writing are not implemented; `gates.enabled`
 and `output.dir` are config fields displayed by the CLI.
 
 ## Information flow
@@ -70,6 +70,7 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 | `validation/output.py`: `AdapterOutputValidator` | Check schema order, coordinates, visibility, confidence, and per-output person IDs. | `AdapterOutput` | Issue tuple or `AdapterOutputValidationError` |
 | `runner/runner.py`: `Runner` | Run warmup, capture inference timing, validate and classify predictions. | Adapter, data source, timer, validator, policies | `RunResult` or `RunnerExecutionError` |
 | `metrics/engine.py`: `MetricsEngine` | Derive latency statistics and prediction error rates. | `RunResult` | `MetricsResult` |
+| `comparison/matching.py`: `PoseMatcher` | Maximize valid person correspondences, then minimize total matching distance. Library API; not wired into Runner or CLI. | Two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `PoseMatchingResult` |
 | `cli.py` | Wire configuration, execution, metrics, and terminal reporting. | CLI arguments | Summary or error; exit code |
 
 ## Execution flow
@@ -111,4 +112,5 @@ Source paths below are relative to `src/pose_deploy_gate/`.
   normalization rules.
 
 For details, see the [output contract](output-contract.md),
-[configuration](config.md), [runner](runner.md), and [metrics](metrics.md).
+[configuration](config.md), [runner](runner.md), [metrics](metrics.md), and
+[pose matching](comparison.md).

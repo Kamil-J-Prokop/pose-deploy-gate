@@ -6,6 +6,30 @@ from pose_deploy_gate.comparison.schema import SchemaResolution
 
 
 @dataclass(frozen=True)
+class PoseAssignment:
+    """Person correspondence before final keypoint scoring, using original indices."""
+
+    reference_pose_index: int
+    candidate_pose_index: int
+    matching_cost: float
+
+
+@dataclass(frozen=True)
+class PoseMatchingResult:
+    """Assignments and unmatched indices for one pair of image outputs.
+
+    Collections are ordered by original pose index. person_id_matching is an
+    advisory observation: at least one match exists and every matched pair has
+    supplied, identical IDs. Unmatched people do not participate in that flag.
+    """
+
+    pose_matches: tuple[PoseAssignment, ...]
+    unmatched_reference_pose_indices: tuple[int, ...]
+    unmatched_candidate_pose_indices: tuple[int, ...]
+    person_id_matching: bool
+
+
+@dataclass(frozen=True)
 class KeypointComparison:
     """Presence and normalized deviation for one resolved keypoint name.
 
