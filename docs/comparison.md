@@ -5,8 +5,8 @@ candidate output for the same image. It maximizes the number of valid matches,
 then minimizes their total matching distance. Matching is independent for each
 image; it does not track identities across frames.
 
-The matcher is a library API. Comparison orchestration, final keypoint scoring,
-aggregation, and CLI reporting are not connected yet. `DummyAdapter` remains
+The matcher and per-image quality comparator are library APIs. Dataset
+orchestration, aggregation, and CLI reporting are not connected yet. `DummyAdapter` remains
 the only registered adapter.
 
 ## Public API
@@ -47,7 +47,7 @@ unmatched indices. Empty inputs are valid, including one empty side. No
 assignment solver is called if either side is empty.
 
 `PoseAssignment` describes correspondence only. The separate `PoseMatch` type
-also holds final `KeypointComparison` values for the later scoring layer.
+also holds final `KeypointComparison` values for the quality comparison layer.
 The matching cost is not a final pose quality score.
 
 ## Shared keypoints and missing coordinates
@@ -157,3 +157,27 @@ greedy failures, missing points, threshold boundaries, advisory IDs, and index
 partitioning. Assignment count and total distance are independently checked
 against exhaustive enumeration of small partial matchings. Additional real or
 simulated data sources are outside this commit's scope.
+
+## Per-image quality comparison
+
+```python
+from pose_deploy_gate.comparison import QualityComparator
+
+comparison = QualityComparator().compare(
+    image_id, reference, candidate, schema, config
+)
+```
+
+`compare()` accepts validated outputs for the same image and a compatible resolved
+schema, just like the matcher. It runs `PoseMatcher` and returns an
+`ImageComparisonResult`, preserving original pose indices, matching costs, and
+unmatched indices. Each match contains one `KeypointComparison` per resolved
+name, in reference schema order. Inputs are not mutated.
+
+When both points have coordinates, deviation uses the normalized image distance
+defined above. Reference-present/candidate-missing records a missing event as
+`reference_present=True`, `candidate_present=False`, and `deviation=None`.
+Whenever the reference is missing, deviation is `None` regardless of candidate
+presence: the trusted reference provides no reliable coordinate for comparison.
+These records are not zero-distance samples. Confidence and visibility do not
+change coordinate presence. Schema-excluded keypoints are not evaluated.

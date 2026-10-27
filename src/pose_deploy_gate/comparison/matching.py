@@ -90,7 +90,7 @@ class PoseMatcher:
 
         matched_reference = {match.reference_pose_index for match in matches}
         matched_candidate = {match.candidate_pose_index for match in matches}
-        # Advisory only: require at least one accepted pair and supplied, equal IDs in every pair.
+        # require at least one accepted pair and supplied, equal IDs in every pair.
         person_id_matching = bool(matches) and all(
             reference.poses[match.reference_pose_index].person_id is not None
             and reference.poses[match.reference_pose_index].person_id

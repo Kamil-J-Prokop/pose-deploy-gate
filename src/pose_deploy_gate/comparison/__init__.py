@@ -1,5 +1,6 @@
 """Reference comparison package."""
 
+from .comparator import QualityComparator
 from .distance import normalized_image_2d_distance
 from .matching import PoseMatcher, compute_pose_match_cost
 from .result import (
@@ -20,6 +21,7 @@ __all__ = [
     "PoseMatch",
     "PoseMatcher",
     "PoseMatchingResult",
+    "QualityComparator",
     "SchemaResolution",
     "compute_pose_match_cost",
     "normalized_image_2d_distance",
