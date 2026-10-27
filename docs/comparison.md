@@ -5,9 +5,9 @@ candidate output for the same image. It maximizes the number of valid matches,
 then minimizes their total matching distance. Matching is independent for each
 image; it does not track identities across frames.
 
-The matcher and per-image quality comparator are library APIs. Dataset
-orchestration, aggregation, and CLI reporting are not connected yet. `DummyAdapter` remains
-the only registered adapter.
+The matcher, per-image quality comparator, and quality aggregator are library
+APIs. Dataset orchestration and CLI reporting are not connected yet.
+`DummyAdapter` remains the only registered adapter.
 
 ## Public API
 
@@ -181,3 +181,36 @@ Whenever the reference is missing, deviation is `None` regardless of candidate
 presence: the trusted reference provides no reliable coordinate for comparison.
 These records are not zero-distance samples. Confidence and visibility do not
 change coordinate presence. Schema-excluded keypoints are not evaluated.
+
+## Aggregate quality metrics
+
+```python
+from pose_deploy_gate.comparison import QualityAggregator
+
+metrics = QualityAggregator().aggregate(comparison, total_image_count=100)
+```
+
+Aggregation combines the `ImageComparisonResult` values in one
+`CandidateComparisonResult`. `compared_image_count` is the number of supplied
+image comparisons. `comparison_coverage` divides that count by
+`total_image_count`, which can include images that failed before comparison. If
+the total is omitted, the supplied comparisons are treated as the complete set.
+Rates with a zero denominator and coverage for an empty set are `None`.
+
+Pose rates use each model's own pose count:
+
+```text
+reference_pose_miss_rate = unmatched_reference / (matched + unmatched_reference)
+candidate_extra_pose_rate = unmatched_candidate / (matched + unmatched_candidate)
+```
+
+Keypoint deviation statistics include only samples where both reference and
+candidate coordinates are present. Mean, P50, P95, and maximum are `None` when
+there are no such samples. Percentiles reuse the metrics module's NumPy
+`method="inverted_cdf"` strategy, so they always select an observed deviation.
+
+The candidate missing-keypoint rate counts only matched-pose keypoints for which
+the reference is present. A candidate point missing against a present reference
+enters the numerator; a missing reference enters neither the numerator nor the
+denominator. Per-keypoint metrics use the same rules and follow resolved
+reference-schema order.

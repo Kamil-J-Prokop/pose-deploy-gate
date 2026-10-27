@@ -71,6 +71,8 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 | `runner/runner.py`: `Runner` | Run warmup, capture inference timing, validate and classify predictions. | Adapter, data source, timer, validator, policies | `RunResult` or `RunnerExecutionError` |
 | `metrics/engine.py`: `MetricsEngine` | Derive latency statistics and prediction error rates. | `RunResult` | `MetricsResult` |
 | `comparison/matching.py`: `PoseMatcher` | Maximize valid person correspondences, then minimize total matching distance. Library API; not wired into Runner or CLI. | Two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `PoseMatchingResult` |
+| `comparison/comparator.py`: `QualityComparator` | Compare resolved keypoints within matched pose pairs for one image. Library API; not wired into Runner or CLI. | Image ID, two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `ImageComparisonResult` |
+| `comparison/aggregate.py`: `QualityAggregator` | Aggregate reference-relative pose and keypoint quality across compared images. Library API; not wired into Runner or CLI. | `CandidateComparisonResult`, optional total image count | `QualityMetrics` |
 | `cli.py` | Wire configuration, execution, metrics, and terminal reporting. | CLI arguments | Summary or error; exit code |
 
 ## Execution flow
