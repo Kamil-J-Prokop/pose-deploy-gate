@@ -74,8 +74,10 @@ maximum. For example, P95 and P99 of six samples are both the sixth sample.
 ### No successful predictions
 
 When no prediction succeeds, `sample_count` is `0` and `min_ns`, `mean_ns`,
-`p50_ns`, `p95_ns`, `p99_ns`, and `max_ns` are all `None`. CLI presentation
-renders those undefined values as `n/a`, not `0.000 ms`.
+`p50_ns`, `p95_ns`, `p99_ns`, and `max_ns` are all `None`. Presentation helpers
+render undefined latency as `n/a`, not `0.000 ms`. Config-driven CLI evaluation
+requires a successful output to resolve each model's schema, so an all-failed
+model stops evaluation with an error instead of printing a completed summary.
 
 ## Error-rate metrics
 

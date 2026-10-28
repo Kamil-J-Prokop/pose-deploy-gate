@@ -4,7 +4,7 @@ PoseDeployGate currently runs a config-driven, sequential pipeline: discover
 files, predict poses, validate outputs, then calculate latency and reliability
 metrics. `DummyAdapter` is the only registered adapter. The library's
 `EvaluationSession` orchestrates sequential multi-model runs and reference
-comparisons; the CLI still executes a single model. Gate evaluation and report
+comparisons through both the library and CLI. Gate evaluation and report
 writing are not implemented; `gates.enabled` and `output.dir` are config fields
 displayed by the CLI.
 
@@ -17,9 +17,10 @@ The data-source implementation is `FileDataSource`; there is no separate
 ```mermaid
 flowchart TD
     YAML["YAML config"] --> Load["load_config()"] --> Config["AppConfig"]
-    Config --> Factory["create_model_runner()"]
+    Config --> Session["EvaluationSession.run()"]
+    Session -. "reference once; candidates in order" .-> Factory["create_model_runner()"]
     Factory -.-> Runner
-    Factory -. "create_data_source()" .-> DS["FileDataSource"]
+    Session -. "one shared create_data_source()" .-> DS["FileDataSource"]
     Factory -. "create_adapter()" .-> Adapter["PoseAdapter / DummyAdapter"]
     Runner -. "iter_images()" .-> DS
     DS --> Image["ImageInput"]
@@ -32,7 +33,11 @@ flowchart TD
     Outcome --> Result["RunResult"]
     Runner -. "collect results" .-> Result
     Result --> Engine["MetricsEngine.compute()"] --> Metrics["MetricsResult"]
-    Metrics --> CLI["CLI summary"]
+    Result --> Compare["Align image IDs; resolve schemas; compare outputs or record misses"]
+    Compare --> Quality["QualityAggregator"]
+    Metrics --> Evaluation["EvaluationResult"]
+    Quality --> Evaluation
+    Evaluation --> CLI["Reference and candidate CLI summaries"]
 ```
 
 ## Data structures
@@ -73,8 +78,8 @@ consumers outside the hierarchy.
 `comparison.CandidateComparisonResult`, which remains the input to
 `QualityAggregator` with model IDs, schema resolution, and `images`. Callers can
 assemble the evaluation container after aggregating that comparison result.
-`EvaluationSession` performs this orchestration through the library API; CLI
-integration is not implemented yet. See [evaluation sessions](evaluation.md).
+`EvaluationSession` performs this orchestration for the library and CLI.
+See [evaluation sessions](evaluation.md).
 
 ## Components
 
@@ -89,18 +94,19 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 | `validation/output.py`: `AdapterOutputValidator` | Check schema order, coordinates, visibility, confidence, and per-output person IDs. | `AdapterOutput` | Issue tuple or `AdapterOutputValidationError` |
 | `runner/runner.py`: `Runner` | Run warmup, capture inference timing, validate and classify predictions. | Adapter, data source, timer, validator, policies | `RunResult` or `RunnerExecutionError` |
 | `metrics/engine.py`: `MetricsEngine` | Derive latency statistics and prediction error rates. | `RunResult` | `MetricsResult` |
-| `evaluation/session.py`: `EvaluationSession` | Run the first model once as reference, then run, measure, and compare each remaining model in order using one shared data source. Library API. | `AppConfig` | `EvaluationResult` |
-| `comparison/matching.py`: `PoseMatcher` | Maximize valid person correspondences, then minimize total matching distance. Library API; not wired into Runner or CLI. | Two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `PoseMatchingResult` |
-| `comparison/comparator.py`: `QualityComparator` | Compare resolved keypoints within matched pose pairs for one image. Library API; not wired into Runner or CLI. | Image ID, two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `ImageComparisonResult` |
-| `comparison/aggregate.py`: `QualityAggregator` | Aggregate reference-relative pose and keypoint quality across compared images. Library API; not wired into Runner or CLI. | `CandidateComparisonResult`, optional total image count | `QualityMetrics` |
+| `evaluation/session.py`: `EvaluationSession` | Run the first model once as reference, then run, measure, and compare each remaining model in order using one shared data source. Used by the CLI and library. | `AppConfig` | `EvaluationResult` |
+| `comparison/matching.py`: `PoseMatcher` | Maximize valid person correspondences, then minimize total matching distance. Used through the session's comparator. | Two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `PoseMatchingResult` |
+| `comparison/comparator.py`: `QualityComparator` | Compare resolved keypoints within matched pose pairs for one image. Used by the session. | Image ID, two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `ImageComparisonResult` |
+| `comparison/aggregate.py`: `QualityAggregator` | Aggregate reference-relative pose and keypoint quality across compared images. Used by the session. | `CandidateComparisonResult`, optional total image count | `QualityMetrics` |
 | `cli.py` | Wire configuration, execution, metrics, and terminal reporting. | CLI arguments | Summary or error; exit code |
 
 ## Execution flow
 
 1. `python -m pose_deploy_gate --config ...` enters `cli.main()`;
    `load_config()` returns a validated `AppConfig`.
-2. `create_model_runner()` uses `create_adapter()` and `create_data_source()`; Runner
-   supplies default `Timer` and `AdapterOutputValidator` instances.
+2. CLI passes the config to `EvaluationSession`, which creates one shared data
+   source. For each model, `create_model_runner()` creates its adapter and reuses
+   that source; Runner supplies default `Timer` and `AdapterOutputValidator` instances.
 3. `Runner.run()` materializes `iter_images()` into an ordered tuple before
    starting the run timer. File discovery raises if no matching inputs exist.
 4. Warmup repeatedly predicts the first image and validates every output. Any
@@ -113,8 +119,12 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 7. Runner returns `RunResult` with warmup, predictions, and total timing.
    `MetricsEngine.compute()` uses only entries with `error is None` for latency,
    while all predictions count toward attempts and failures.
-8. CLI prints metrics and counts by failure kind. Fail-fast errors include the
-   image and validation details and return exit code `2`.
+8. The session reuses the reference result for every candidate, validates image-ID
+   correspondence, compares reference-successful images, and aggregates quality.
+   It returns one `EvaluationResult` after completing all models in config order.
+9. CLI prints reference and candidate runtime summaries and candidate schema and
+   quality summaries. Fatal errors, including schema and consistency errors,
+   return exit code `2`. Fail-fast validation errors retain image and issue details.
 
 ## Architectural boundaries
 

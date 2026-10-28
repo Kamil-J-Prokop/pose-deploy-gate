@@ -22,9 +22,11 @@ The CLI runs this pipeline with:
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml
 ```
 
-After a successful run, the CLI passes the returned `RunResult` to
-`MetricsEngine` and prints latency and reliability metrics. Internally, runner
-timings and metric latency values are stored in nanoseconds.
+The CLI delegates to `EvaluationSession`, which runs the reference once and
+then each candidate sequentially, computing runtime metrics and reference-relative
+quality. The CLI prints each model's P95 latency and failure rate, plus candidate
+schema and quality summaries. Internally, runner timings and metric latency
+values are stored in nanoseconds. See [evaluation sessions](evaluation.md).
 
 ## Runner results and metrics
 

@@ -85,4 +85,51 @@ The result is an `EvaluationResult` containing a reference
 `ModelEvaluationResult` and an ordered tuple of `CandidateEvaluationResult`
 values. Each candidate includes its own run and runtime metrics, schema
 resolution, per-image comparisons, and aggregate quality metrics. Gate evaluation,
-report serialization, and CLI integration are outside this component.
+report serialization belong outside this component.
+
+## CLI summaries
+
+```bash
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison.yaml
+```
+
+All config invocations use `EvaluationSession`. The CLI prints one reference
+summary, then one candidate section in config order. Each model shows its image
+attempt count, P95 latency, failure rate, and success/failure counts, including
+adapter execution and output validation failures. Each candidate also shows
+both schema names, compared keypoint counts against both schemas, exclusion
+counts for both sides, coverage, matched/missed/extra poses, mean and P95 keypoint
+deviation, and the matched-pose missing-keypoint rate. Per-keypoint details and
+individual recorded error messages are omitted. `--list-inputs` lists reference
+input paths once, after the complete summary.
+
+Use `-v`, `--verbose`, or `-verbose` to add detailed runtime statistics for every
+model: adapter type, actual warmup iterations and time, latency sample count,
+minimum, mean, P50, P95, P99, maximum, reliability counts and error rate, and total
+runner time. These values come from existing results; verbose mode does not run
+models again. Per-keypoint details remain omitted.
+
+A two-model smoke run is available from the repository root:
+
+```bash
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison-smoke.yaml -v
+```
+
+It compares two separate `DummyAdapter` instances using repository fixture
+paths. Only the `dummy` adapter type is currently registered. Dummy outputs are
+synthetic and independent of file contents, so this verifies orchestration and
+reporting rather than real model inference or accuracy. To evaluate your own
+input paths with dummy adapters, edit `data.input_dir` in the example.
+
+Latency uses milliseconds with three decimal places. Rates and normalized
+deviations are multiplied by 100 and printed with two decimal places. A deviation
+percentage expresses normalized coordinate distance, not accuracy. Undefined
+quality values appear as `n/a`; real zero values appear as `0.00%`. These rounded
+summaries do not replace the full-precision metrics in the result objects.
+
+A completed evaluation returns exit code `0`, including evaluations with recorded
+prediction failures. Configuration, adapter, data-source, runner, schema, and
+consistency errors print `ERROR:` and return `2`, without a completed or partial
+model summary. An all-failed single-model config now follows the same schema
+requirement as multi-model evaluation and returns `2`. Gates and reports remain
+unimplemented; `gates.enabled` and `output.dir` are displayed configuration only.

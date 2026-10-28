@@ -6,8 +6,10 @@ then minimizes their total matching distance. Matching is independent for each
 image; it does not track identities across frames.
 
 The matcher, per-image quality comparator, and quality aggregator are library
-APIs. Dataset orchestration and CLI reporting are not connected yet.
-`DummyAdapter` remains the only registered adapter.
+APIs used by `EvaluationSession` and the config-driven CLI. The CLI prints
+aggregate quality and schema exclusions for every candidate; per-keypoint
+details remain available in the result objects. `DummyAdapter` remains the
+only registered adapter.
 
 ## Public API
 

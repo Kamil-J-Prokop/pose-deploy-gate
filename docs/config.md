@@ -28,11 +28,20 @@ Print the deterministic input list discovered from that config:
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml --list-inputs
 ```
 
-The configuration schema supports one or more named models. The library's
-[`EvaluationSession`](evaluation.md) treats the first entry as the reference and
-runs the remaining entries as candidates in configured order. The CLI currently
-executes configs containing exactly one model; multiple models load successfully
-through `load_config`, but CLI execution returns an error with exit code `2`.
+Add `-v` (also `--verbose` or `-verbose`) for each model's adapter type, warmup
+iterations and time, latency sample count, minimum/mean/P50/P95/P99/maximum
+latency, detailed reliability counts, and total runner time:
+
+```bash
+uv run python -m pose_deploy_gate --config ./path/to/config.yaml -v
+```
+
+The configuration schema supports one or more named models. The CLI passes the
+loaded config to [`EvaluationSession`](evaluation.md), which treats the first
+entry as the reference and runs the remaining entries as candidates sequentially
+in configured order. A single-model config prints only a reference summary.
+See [config.comparison.yaml](examples/config.comparison.yaml) for a multi-model
+example using the built-in dummy adapter.
 
 ## Minimal Example
 
@@ -118,8 +127,8 @@ Warmup, timing boundaries, and failure behavior are documented in
 ### `comparison`
 
 This optional section defines reference comparison settings. Omitting it uses
-the defaults below. The library's `PoseMatcher` consumes these settings; CLI
-comparison execution is not connected yet. See [pose matching](comparison.md)
+the defaults below. The CLI evaluation session uses these settings for schema
+resolution and pose matching. See [pose matching](comparison.md)
 for the assignment objective, threshold behavior, and missing-point semantics.
 
 | Field | Type | Default | Bounds / permitted values |

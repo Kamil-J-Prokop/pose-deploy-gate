@@ -25,34 +25,65 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ```
 PoseDeployGate config validation successful.
-Config path: /home/kamil/workspace/pose-deploy-gate/docs/examples/config.runner.yaml
+Config path: /path/to/config.comparison.yaml
 Run name: default-run
-Input directory: /home/kamil/workspace/pose-deploy-gate
-Adapter: dummy
+Input directory: /path/to/inputs
 Output directory: artifacts
 Gates enabled: False
-PoseDeployGate run completed.
-Input files: 6
-Warmup iterations: 3
+PoseDeployGate evaluation completed.
 
-Latency:
-  Samples: 6
-  Min: 0.030 ms
-  Mean: 0.038 ms
-  P50: 0.034 ms
-  P95: 0.059 ms
-  P99: 0.059 ms
-  Max: 0.059 ms
-
-Reliability:
-  Successful predictions: 6
+Reference: production
+  Images: 3
+  P95 latency: 0.041 ms
+  Failure rate: 0.00%
+  Successful predictions: 3
   Failed predictions: 0
     Adapter execution failures: 0
     Output validation failures: 0
-  Error rate: 0.00%
 
-Total runner time: 0.832 ms
+Candidate: candidate
+  Images: 3
+  P95 latency: 0.025 ms
+  Failure rate: 0.00%
+  Successful predictions: 3
+  Failed predictions: 0
+    Adapter execution failures: 0
+    Output validation failures: 0
+
+  Schema comparison:
+    Reference: dummy_5
+    Candidate: dummy_5
+    Compared keypoints: 5/5 reference, 5/5 candidate
+    Reference-only keypoints excluded: 0
+    Candidate-only keypoints excluded: 0
+
+  Quality:
+    Comparison coverage: 100.00%
+    Matched poses: 3
+    Missed reference poses: 0 (0.00%)
+    Extra candidate poses: 0
+    Mean keypoint deviation: 0.00%
+    P95 keypoint deviation: 0.00%
+    Missing keypoint rate: 0.00%
+
 ```
+
+Timings above are illustrative. The first configured model is the reference;
+each remaining candidate gets its own section in config order. See the
+[multi-model config example](docs/examples/config.comparison.yaml) and
+[evaluation semantics](docs/evaluation.md).
+
+For detailed runtime statistics on every model, add `-v` (`--verbose` and
+`-verbose` are also accepted). Run this two-model smoke test from the repository
+root:
+
+```bash
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison-smoke.yaml -v
+```
+
+This uses two separate dummy adapters and repository fixture paths. Real model
+adapters are not registered yet; the smoke test exercises evaluation and CLI
+reporting with synthetic predictions.
 
 ## Current status
 
@@ -82,7 +113,7 @@ Implemented so far:
 - monotonic per-prediction and total runner timing capture
 - deployment-oriented minimum, mean, P50, P95, P99, and maximum latency metrics
 - prediction success, failure, and error-rate metrics
-- CLI run summaries with latency and reliability metrics
+- sequential multi-model CLI summaries with runtime metrics, schema exclusions, and aggregate quality
 - declared keypoint schemas with exact name and ordering validation
 - normalized coordinate, missing-keypoint, confidence, and person-ID validation
 - validation of every warmup output and measured prediction
@@ -117,9 +148,8 @@ Run the CLI:
 
 ```bash
 uv run python -m pose_deploy_gate --version
-uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml
-uv run python -m pose_deploy_gate --config docs/examples/config.runner.yaml
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml --list-inputs
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison-smoke.yaml -v
 uv run python -m pose_deploy_gate --input .
 ```
 

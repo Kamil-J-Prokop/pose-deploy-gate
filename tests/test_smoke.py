@@ -4,6 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from pose_deploy_gate.adapters import DummyAdapter
+from pose_deploy_gate.adapters.schema import KeypointSchema
+from pose_deploy_gate.adapters.types import AdapterOutput, Keypoint, PosePrediction
 from pose_deploy_gate.cli import run
 from pose_deploy_gate.runner import RunnerExecutionError
 
@@ -107,12 +110,13 @@ def test_cli_config_runs_runner_successfully(
     assert f"Config path: {args.config.resolve()}" in output
     assert "Run name: default-run" in output
     assert f"Input directory: {image_fixtures_dir.resolve()}" in output
-    assert "Adapter: dummy" in output
-    assert "PoseDeployGate run completed." in output
-    assert "Input files: 2" in output
+    assert "Reference: dummy" in output
+    assert "PoseDeployGate evaluation completed." in output
+    assert "  Images: 2" in output
+    assert "Candidate:" not in output
     assert output.count("Config path:") == 1
     assert output.count("Run name:") == 1
-    assert output.count("Adapter:") == 1
+    assert output.count("Reference:") == 1
 
 
 def test_cli_config_prints_timing_summary(
@@ -125,15 +129,10 @@ def test_cli_config_prints_timing_summary(
     assert run(args) == 0
 
     output = capsys.readouterr().out
-    assert "Warmup iterations: 3" in output
     assert "Successful predictions: 2" in output
     assert "Failed predictions: 0" in output
-    assert "Latency:" in output
-    assert "Reliability:" in output
-    assert "  Error rate: 0.00%" in output
-    for label in ("Min", "Mean", "P50", "P95", "P99", "Max"):
-        assert re.search(rf"^  {label}: \d+\.\d{{3}} ms$", output, re.MULTILINE)
-    assert re.search(r"^Total runner time: \d+\.\d{3} ms$", output, re.MULTILINE)
+    assert "  Failure rate: 0.00%" in output
+    assert re.search(r"^  P95 latency: \d+\.\d{3} ms$", output, re.MULTILINE)
 
 
 def test_cli_config_list_inputs_prints_files_in_deterministic_order(
@@ -171,7 +170,7 @@ def test_cli_config_returns_error_when_no_files_match(
 
     output = capsys.readouterr().out
     assert "ERROR: No input files found" in output
-    assert "PoseDeployGate run completed." not in output
+    assert "PoseDeployGate evaluation completed." not in output
 
 
 def test_cli_config_returns_error_when_runner_fails(
@@ -185,7 +184,7 @@ def test_cli_config_returns_error_when_runner_fails(
             raise RunnerExecutionError("runner failed")
 
     monkeypatch.setattr(
-        "pose_deploy_gate.cli.create_model_runner",
+        "pose_deploy_gate.evaluation.session.create_model_runner",
         lambda model, **kwargs: FailingRunner(),
     )
     args = _config_args(tmp_path, image_fixtures_dir)
@@ -194,7 +193,7 @@ def test_cli_config_returns_error_when_runner_fails(
 
     output = capsys.readouterr().out
     assert "ERROR: runner failed" in output
-    assert "PoseDeployGate run completed." not in output
+    assert "PoseDeployGate evaluation completed." not in output
 
 
 def test_run_with_invalid_config_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -204,24 +203,69 @@ def test_run_with_invalid_config_path(tmp_path: Path, capsys: pytest.CaptureFixt
 
     output = capsys.readouterr().out
     assert output == f"ERROR: Config file does not exist: {config_path}\n"
-    assert "PoseDeployGate run completed." not in output
+    assert "PoseDeployGate evaluation completed." not in output
 
 
-def test_cli_multiple_models_returns_actionable_error(tmp_path, capsys, monkeypatch):
+def test_cli_multiple_models_prints_all_candidate_comparisons(tmp_path, capsys):
+    (tmp_path / "a.jpg").touch()
     config_path = tmp_path / "models.yaml"
     config_path.write_text(
-        'version: 1\ndata:\n  input_dir: "."\nmodels:\n'
-        "  - id: a\n    adapter:\n      type: dummy\n"
-        "  - id: b\n    adapter:\n      type: dummy\n",
+        f'version: 1\ndata:\n  input_dir: "{tmp_path}"\n  file_pattern: "*.jpg"\nmodels:\n'
+        "  - id: production\n    adapter:\n      type: dummy\n"
+        "  - id: candidate-z\n    adapter:\n      type: dummy\n"
+        "  - id: candidate-a\n    adapter:\n      type: dummy\n",
         encoding="utf-8",
     )
-
-    def unexpected_runner_creation(*args, **kwargs):
-        pytest.fail("Multi-model CLI execution must stop before creating a runner")
-
-    monkeypatch.setattr("pose_deploy_gate.cli.create_model_runner", unexpected_runner_creation)
-    assert run(_args(config=config_path)) == 2
+    assert run(_args(config=config_path, list_inputs=True)) == 0
     output = capsys.readouterr().out
-    assert "ERROR: Execution currently requires exactly one configured model" in output
-    assert "multi-model execution is not implemented yet" in output
-    assert "PoseDeployGate run completed." not in output
+    assert "PoseDeployGate evaluation completed." in output
+    assert (
+        output.index("Reference: production")
+        < output.index("Candidate: candidate-z")
+        < output.index("Candidate: candidate-a")
+    )
+    assert output.count("    Comparison coverage: 100.00%") == 2
+    assert output.count("    Mean keypoint deviation: 0.00%") == 2
+    assert output.count("    Matched poses: 1") == 2
+    assert output.count("    Compared keypoints: 5/5 reference, 5/5 candidate") == 2
+    assert output.count("Input files:") == 1
+    assert output.endswith("  001: a.jpg\n")
+
+
+def test_cli_common_schema_comparison_end_to_end(tmp_path, capsys, monkeypatch):
+    (tmp_path / "a.jpg").touch()
+    reference_schema = KeypointSchema("reference_4", ("nose", "left", "right", "ref_only"))
+    candidate_schema = KeypointSchema(
+        "candidate_5", ("nose", "left", "right", "extra_1", "extra_2")
+    )
+
+    def predict(adapter, image):
+        schema = reference_schema if adapter.pose_confidence == 1.0 else candidate_schema
+        x = 0.5 if adapter.pose_confidence == 1.0 else 0.51
+        return AdapterOutput(
+            schema,
+            (PosePrediction(tuple(Keypoint(name, x, 0.5) for name in schema.keypoint_names)),),
+        )
+
+    monkeypatch.setattr(DummyAdapter, "predict", predict)
+    config_path = tmp_path / "common.yaml"
+    config_path.write_text(
+        f'version: 1\ndata:\n  input_dir: "{tmp_path}"\n  file_pattern: "*.jpg"\n'
+        "models:\n"
+        "  - id: production\n    adapter: {type: dummy}\n"
+        "  - id: custom\n    adapter: {type: dummy, params: {pose_confidence: 0.8}}\n"
+        "comparison:\n  schema_mode: common\n  min_common_keypoints: 3\n",
+        encoding="utf-8",
+    )
+    assert run(_args(config=config_path)) == 0
+    output = capsys.readouterr().out
+    assert "    Reference: reference_4" in output
+    assert "    Candidate: candidate_5" in output
+    assert "    Compared keypoints: 3/4 reference, 3/5 candidate" in output
+    assert "    Reference-only keypoints excluded: 1" in output
+    assert "    Candidate-only keypoints excluded: 2" in output
+    assert "    Comparison coverage: 100.00%" in output
+    assert "    Mean keypoint deviation: 0.71%" in output
+    assert "    P95 keypoint deviation: 0.71%" in output
+    assert "    Missing keypoint rate: 0.00%" in output
+    assert "nose" not in output

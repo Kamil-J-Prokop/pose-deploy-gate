@@ -1,0 +1,23 @@
+# Run from the repository root. Uses fixture paths and synthetic dummy outputs;
+# the dummy adapter does not decode these files or run a real pose model.
+version: 1
+
+data:
+  input_dir: tests/fixtures/data/images
+  file_pattern: "*.jpg"
+  recursive: true
+
+models:
+  - id: production
+    adapter:
+      type: dummy
+      params:
+        pose_confidence: 0.9
+  - id: candidate
+    adapter:
+      type: dummy
+      params:
+        pose_confidence: 0.7
+
+runner:
+  warmup_iterations: 3
