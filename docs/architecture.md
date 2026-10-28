@@ -2,9 +2,11 @@
 
 PoseDeployGate currently runs a config-driven, sequential pipeline: discover
 files, predict poses, validate outputs, then calculate latency and reliability
-metrics. `DummyAdapter` is the only registered adapter. Gate evaluation,
-reference comparison orchestration, and report writing are not implemented; `gates.enabled`
-and `output.dir` are config fields displayed by the CLI.
+metrics. `DummyAdapter` is the only registered adapter. The library's
+`EvaluationSession` orchestrates sequential multi-model runs and reference
+comparisons; the CLI still executes a single model. Gate evaluation and report
+writing are not implemented; `gates.enabled` and `output.dir` are config fields
+displayed by the CLI.
 
 ## Information flow
 
@@ -71,7 +73,8 @@ consumers outside the hierarchy.
 `comparison.CandidateComparisonResult`, which remains the input to
 `QualityAggregator` with model IDs, schema resolution, and `images`. Callers can
 assemble the evaluation container after aggregating that comparison result.
-Evaluation orchestration and CLI integration are not implemented yet.
+`EvaluationSession` performs this orchestration through the library API; CLI
+integration is not implemented yet. See [evaluation sessions](evaluation.md).
 
 ## Components
 
@@ -80,12 +83,13 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 | Component | Responsibility | Input | Output |
 | --- | --- | --- | --- |
 | `config/loader.py`: `load_config` | Validate path, parse YAML, validate Pydantic schema and application rules. | Config path | `AppConfig` |
-| `runner/factory.py`: `create_model_runner` | Construct adapter, data source, and runner with configured policies. | `ModelConfig`, `DataConfig`, `RunnerConfig` | `Runner` |
+| `runner/factory.py`: `create_model_runner` | Construct adapter and runner with configured policies; create a data source or reuse a supplied one. | `ModelConfig`, `DataConfig`, `RunnerConfig`, optional `FileDataSource` | `Runner` |
 | `data/datasource.py`: `FileDataSource` | Discover matching files in deterministic relative-path order. | `DataConfig` | Iterator of `ImageInput` |
 | `adapters/base.py`: `PoseAdapter` | Define `name` and `predict(image)`; implementation performs inference and normalization. | `ImageInput` | `AdapterOutput` |
 | `validation/output.py`: `AdapterOutputValidator` | Check schema order, coordinates, visibility, confidence, and per-output person IDs. | `AdapterOutput` | Issue tuple or `AdapterOutputValidationError` |
 | `runner/runner.py`: `Runner` | Run warmup, capture inference timing, validate and classify predictions. | Adapter, data source, timer, validator, policies | `RunResult` or `RunnerExecutionError` |
 | `metrics/engine.py`: `MetricsEngine` | Derive latency statistics and prediction error rates. | `RunResult` | `MetricsResult` |
+| `evaluation/session.py`: `EvaluationSession` | Run the first model once as reference, then run, measure, and compare each remaining model in order using one shared data source. Library API. | `AppConfig` | `EvaluationResult` |
 | `comparison/matching.py`: `PoseMatcher` | Maximize valid person correspondences, then minimize total matching distance. Library API; not wired into Runner or CLI. | Two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `PoseMatchingResult` |
 | `comparison/comparator.py`: `QualityComparator` | Compare resolved keypoints within matched pose pairs for one image. Library API; not wired into Runner or CLI. | Image ID, two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `ImageComparisonResult` |
 | `comparison/aggregate.py`: `QualityAggregator` | Aggregate reference-relative pose and keypoint quality across compared images. Library API; not wired into Runner or CLI. | `CandidateComparisonResult`, optional total image count | `QualityMetrics` |

@@ -1,6 +1,6 @@
 from pose_deploy_gate.adapters import create_adapter
 from pose_deploy_gate.config.models import DataConfig, ModelConfig, RunnerConfig
-from pose_deploy_gate.data import create_data_source
+from pose_deploy_gate.data import FileDataSource, create_data_source
 from pose_deploy_gate.runner.runner import Runner
 
 
@@ -9,10 +9,15 @@ def create_model_runner(
     *,
     data_config: DataConfig,
     runner_config: RunnerConfig,
+    data_source: FileDataSource | None = None,
 ) -> Runner:
-    """Create a runner with its own adapter for the requested model."""
+    """Create a model runner, optionally reusing a session's data source.
+
+    When supplied, ``data_source`` takes precedence over ``data_config``.
+    """
     adapter = create_adapter(model.adapter)
-    data_source = create_data_source(data_config)
+    if data_source is None:
+        data_source = create_data_source(data_config)
     return Runner(
         adapter=adapter,
         data_source=data_source,

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from pose_deploy_gate.config.models import DataConfig, ModelConfig, RunnerConfig
+from pose_deploy_gate.data import FileDataSource
 from pose_deploy_gate.runner import Runner, create_model_runner
 
 
@@ -47,3 +48,17 @@ def test_repeated_creation_for_same_model_uses_separate_adapters(tmp_path: Path)
     assert first.adapter is not second.adapter
     assert first.warmup_iterations == second.warmup_iterations == 3
     assert first.continue_on_error is second.continue_on_error is False
+
+
+def test_create_model_runner_reuses_supplied_data_source(tmp_path: Path) -> None:
+    source = FileDataSource(tmp_path, "*.jpg", recursive=True)
+    runner = create_model_runner(
+        ModelConfig(id="model", adapter={"type": "dummy"}),
+        data_config=DataConfig(input_dir=tmp_path / "unused"),
+        runner_config=RunnerConfig(warmup_iterations=0, continue_on_error=True),
+        data_source=source,
+    )
+
+    assert runner.data_source is source
+    assert runner.warmup_iterations == 0
+    assert runner.continue_on_error is True

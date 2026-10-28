@@ -28,10 +28,11 @@ Print the deterministic input list discovered from that config:
 uv run python -m pose_deploy_gate --config ./path/to/config.yaml --list-inputs
 ```
 
-The configuration schema supports one or more named models. The CLI and runner
-currently execute configs containing exactly one model. Configs containing
-multiple models load successfully through `load_config`, but CLI execution returns
-a clear error with exit code `2` until multi-model execution is implemented.
+The configuration schema supports one or more named models. The library's
+[`EvaluationSession`](evaluation.md) treats the first entry as the reference and
+runs the remaining entries as candidates in configured order. The CLI currently
+executes configs containing exactly one model; multiple models load successfully
+through `load_config`, but CLI execution returns an error with exit code `2`.
 
 ## Minimal Example
 
