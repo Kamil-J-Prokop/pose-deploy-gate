@@ -88,8 +88,7 @@ reporting with synthetic predictions.
 ## Current status
 
 The current development tree implements the v0.8 multi-model reference-comparison
-workflow on top of the v0.7 normalized output contract. Package version metadata
-remains `0.7.0` until release preparation; this is not a v0.8 release announcement.
+workflow on top of the v0.7 normalized output contract. 
 Only `DummyAdapter` is registered. Gates, report writing, real model integrations,
 temporal tracking, and 3D comparison remain unimplemented.
 
