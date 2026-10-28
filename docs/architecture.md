@@ -57,6 +57,22 @@ and elapsed nanoseconds. `PredictionResult.error` and `failure_kind` must both
 be absent or both present. Runner failures have `output=None` and classify the
 cause as `ADAPTER_EXECUTION` or `OUTPUT_VALIDATION`.
 
+The `evaluation` package defines the central multi-model result hierarchy:
+`ModelEvaluationResult` holds `model_id`, a `reference` or `candidate` role,
+`RunResult`, and `MetricsResult`. Its `CandidateEvaluationResult` holds the
+candidate model result, `SchemaResolution`, an `image_comparisons` tuple, and
+`QualityMetrics`. `EvaluationResult` holds one reference model result and an
+ordered tuple of candidate comparisons; an empty tuple supports reference-only
+evaluation. These frozen containers store supplied results without computing or
+cross-validating them. Gate evaluation and report serialization belong to future
+consumers outside the hierarchy.
+
+`evaluation.CandidateEvaluationResult` is separate from the existing
+`comparison.CandidateComparisonResult`, which remains the input to
+`QualityAggregator` with model IDs, schema resolution, and `images`. Callers can
+assemble the evaluation container after aggregating that comparison result.
+Evaluation orchestration and CLI integration are not implemented yet.
+
 ## Components
 
 Source paths below are relative to `src/pose_deploy_gate/`.
