@@ -1,6 +1,7 @@
 # Data Sources
 
-Version `0.4.0` introduces deterministic file iteration.
+`FileDataSource`, introduced in v0.4, supplies deterministic file iteration to
+every model in a sequential evaluation.
 
 ## What It Does
 
@@ -32,6 +33,16 @@ into an `ImageInput`:
 - `image_id` is the relative path without the file suffix
 - `path` is the actual discovered `Path`
 
+Input paths are resolved from the process working directory. Because image IDs
+omit suffixes, `frame.jpg` and `frame.png` in the same directory produce the same
+ID. Discovery itself can return both; `EvaluationSession` rejects their duplicate
+ID. Use a filter such as `*.jpg` or inputs with distinct suffix-free paths.
+
+The session shares one data-source instance across models, but each runner
+rediscovers files before inference. Keep the input set and file contents stable.
+Different candidate/reference ID sets raise a consistency error, including when
+the missing ID belonged to a failed prediction. No content hashes are computed.
+
 For example, `images/session_a/frame_001.jpg` becomes:
 
 - `image_id="session_a/frame_001"`
@@ -58,7 +69,7 @@ models:
 ## CLI Behavior
 
 When you run a config through the CLI, PoseDeployGate reports how many input
-files were processed after the runner completes successfully:
+attempts each model made after the evaluation completes:
 
 ```bash
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml
@@ -69,6 +80,10 @@ Add `--list-inputs` to print the deterministic relative file list:
 ```bash
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml --list-inputs
 ```
+
+The list is printed once using reference prediction paths, after all candidate
+summaries. The [two-model smoke example](examples/config.comparison-smoke.yaml)
+uses repository fixtures and is runnable from the repository root.
 
 ## Example Files
 

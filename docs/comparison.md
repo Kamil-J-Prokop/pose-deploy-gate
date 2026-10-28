@@ -1,4 +1,80 @@
-# Pose matching
+# Multi-model reference comparison
+
+v0.8 comparison evaluates one reference model against zero or more candidates.
+The first entry in `models` is the reference; every remaining entry is a
+candidate. `EvaluationSession` runs the reference exactly once, then runs and
+compares each candidate sequentially in configured order. Candidates are never
+compared to each other. A single-model config produces runtime metrics for the
+reference and an empty candidate tuple.
+
+These metrics describe agreement with the reference, not ground-truth accuracy.
+The reference can be wrong, and identical incorrect outputs have zero deviation.
+No annotations, accuracy labels, PCK, or OKS calculation are used. Interpret
+deviation together with pose misses, extra poses, runtime failures, and coverage.
+
+Run the two-model example from the repository root:
+
+```bash
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison-smoke.yaml -v
+```
+
+This uses synthetic `DummyAdapter` predictions and fixture paths. The dummy
+adapter does not decode the files or perform real model inference. See
+[configuration](config.md) for settings and [evaluation sessions](evaluation.md)
+for the result hierarchy, execution policy, and CLI output.
+
+## Schema resolution
+
+Every output must first pass validation against its own declared schema: its
+keypoint entries must have the exact names and order declared by that output.
+Pairwise comparison is a separate step and supports two modes:
+
+| Mode | Compatibility rule | Compared names and exclusions |
+| --- | --- | --- |
+| `common` (default) | At least `min_common_keypoints` exact names are shared, default `3`. Different schema names, lengths, and ordering are allowed. | Intersection in reference order. Names unique to either schema are recorded as exclusions in that schema's order. |
+| `strict` | `reference.keypoint_names == candidate.keypoint_names`: identical names and order. Schema labels may differ. | All names are compared; there are no exclusions. `min_common_keypoints` is not a strict-mode minimum. |
+
+Names are compared exactly, without case folding, aliases, or inferred taxonomy
+translation. A shared name must represent the same anatomical point in both
+adapters; the resolver cannot verify that meaning. Coordinate and unit agreement
+are also adapter responsibilities.
+
+For example, these schemas share three names despite differing order:
+
+```text
+reference: (nose, left_wrist, right_wrist, left_ankle)
+candidate: (right_wrist, nose, left_wrist, custom_tip)
+
+compared_keypoints:       (nose, left_wrist, right_wrist)
+reference_only_keypoints: (left_ankle,)
+candidate_only_keypoints: (custom_tip,)
+```
+
+`common` mode accepts this pair at the default minimum; `strict` rejects it.
+`SchemaResolution` preserves both original schemas and all three name tuples.
+The CLI shows schema names, compared counts against both schemas, and exclusion
+counts. Exact excluded names are available in the result object. Excluded names
+do not count as missing keypoints and do not enter distance or missing-rate
+denominators; a small shared subset therefore limits what agreement can show.
+
+Schema resolution happens after each model's run. Each model must supply at
+least one successful output and the same `KeypointSchema` across its successful
+outputs. An incompatible pair, changing schema, or entirely failed model stops
+the evaluation; no partial result is returned.
+
+## Image alignment
+
+Predictions are joined by `prediction.image.image_id`, never by positional
+`zip()`. Each candidate must have the same complete image-ID set as the
+reference, including failed attempts. Duplicate, missing, or unexpected IDs
+raise `EvaluationConsistencyError`. Image comparisons preserve reference
+prediction order, independently of candidate prediction tuple order.
+
+All models receive the same file data-source instance, but each runner discovers
+files when it starts. Keep input paths and contents stable throughout the run;
+ID-set checks cannot detect changed image contents.
+
+## Multi-person matching
 
 `PoseMatcher` finds one-to-one person correspondences between a reference and a
 candidate output for the same image. It maximizes the number of valid matches,
@@ -28,7 +104,7 @@ schema = resolve_comparison_schema(
 result = PoseMatcher().match(reference, candidate, schema, config)
 ```
 
-The caller supplies validated outputs in the original image coordinate frame
+The caller supplies validated outputs in the normalized original-image coordinate frame
 and a compatible resolved schema. The matcher does not load images, run
 adapters, repair outputs, or resolve schemas itself. Inputs are not mutated.
 
@@ -93,6 +169,12 @@ The algorithm assigns whole people. Keypoint names supply evidence for each
 possible person pairing; keypoints are never assigned independently across
 different people.
 
+The normalized distance is measured in the unit square, not in pixels or world
+units. Dividing by `sqrt(2)` maps opposite corners to distance `1`. Image width
+and height are normalized separately, so this is not pixel Euclidean distance
+divided by the original image's diagonal. CLI deviation percentages are this
+distance multiplied by 100, not an accuracy percentage.
+
 ## Optimal assignment and final rejection
 
 A valid pair meets the shared-point requirements and has original matching
@@ -139,6 +221,26 @@ versions. Output collections are always ordered by original indices, but an
 ambiguous pair of overlapping or identical poses can have multiple equally
 valid correspondences. Person IDs do not break these ties.
 
+For separated people, reversing the candidate tuple preserves geometric
+correspondence. If reference indices `0` and `1` are people A on the left and B
+on the right, a candidate tuple `(B, A)` yields `(reference=0, candidate=1)` and
+`(reference=1, candidate=0)`. Identical coordinates give zero keypoint deviation.
+Neither tuple position nor `person_id` determines the pairing.
+
+## Unmatched poses
+
+An unmatched reference pose has no eligible accepted candidate correspondence.
+It can mean a candidate missed that person, supplied too few shared coordinates,
+was beyond the distance threshold, or lost a competing assignment. A candidate
+inference or validation failure leaves every reference pose in that image
+unmatched. An unmatched candidate pose has no accepted reference correspondence.
+
+These are reference-relative observations, not ground-truth false negatives or
+false positives. An entirely wrong reference can make a correct candidate appear
+extra. A distance-rejected pair can leave both a reference miss and a candidate
+extra. All indices refer to the original per-image pose tuples, including after
+reordering; they are not persistent person identities.
+
 ## Advisory person-ID agreement
 
 `person_id_matching` is `True` only when at least one accepted match exists and
@@ -153,12 +255,15 @@ applies to empty IDs and duplicate supplied IDs within one output.
 
 ## Validation scope
 
-Tests use the existing dummy adapter and directly constructed normalized pose
-objects and cost matrices. They cover empty and unequal counts, crossing poses,
-greedy failures, missing points, threshold boundaries, advisory IDs, and index
-partitioning. Assignment count and total distance are independently checked
-against exhaustive enumeration of small partial matchings. Additional real or
-simulated data sources are outside this commit's scope.
+Unit tests cover empty and unequal counts, crossing poses, greedy failures,
+missing points, threshold boundaries, advisory IDs, and index partitioning.
+Assignment count and total distance are independently checked against exhaustive
+enumeration of small partial matchings. Config-driven regression tests use
+synthetic adapters with real runners, validation, schema resolution, matching,
+aggregation, and CLI formatting. They include one or three candidates, shared
+schemas, strict rejection, shifted and reordered people, missed/extra people,
+missing keypoints, and inference/validation failures. These tests establish
+pipeline behavior, not real-model accuracy or performance.
 
 ## Per-image quality comparison
 
@@ -180,7 +285,7 @@ When both points have coordinates, deviation uses the normalized image distance
 defined above. Reference-present/candidate-missing records a missing event as
 `reference_present=True`, `candidate_present=False`, and `deviation=None`.
 Whenever the reference is missing, deviation is `None` regardless of candidate
-presence: the trusted reference provides no reliable coordinate for comparison.
+presence: the reference supplies no coordinate for comparison.
 These records are not zero-distance samples. Confidence and visibility do not
 change coordinate presence. Schema-excluded keypoints are not evaluated.
 
@@ -199,13 +304,9 @@ image comparisons. `comparison_coverage` divides that count by
 the total is omitted, the supplied comparisons are treated as the complete set.
 Rates with a zero denominator and coverage for an empty set are `None`.
 
-`EvaluationSession` supplies one comparison per reference-successful image,
-including images where the candidate failed. For a candidate failure, the
-comparison has no matches or candidate poses and records all reference pose
-indices as unmatched. Reference failures produce no comparison. With the total
-reference attempt count passed as `total_image_count`, session coverage is
-therefore `reference-successful images / total reference attempts`, independent
-of candidate failures. See [evaluation failure handling](evaluation.md).
+The session supplies a comparison for every reference-successful image, even
+on candidate failure. Its coverage formula and unavailable-image rules are
+specified under [failures and comparison coverage](#failures-and-comparison-coverage).
 
 Pose rates use each model's own pose count:
 
@@ -224,3 +325,57 @@ the reference is present. A candidate point missing against a present reference
 enters the numerator; a missing reference enters neither the numerator nor the
 denominator. Per-keypoint metrics use the same rules and follow resolved
 reference-schema order.
+
+## Failures and comparison coverage
+
+With `runner.continue_on_error: true`, an adapter execution failure or invalid
+output remains a failed prediction with `output=None`, an error message, and
+its failure kind. It contributes to runtime error rate and not to successful
+latency samples. The session applies these rules after image-ID alignment:
+
+| Reference attempt | Candidate attempt | Comparison result |
+| --- | --- | --- |
+| Success | Success | Normal comparison, including successful empty pose outputs. |
+| Success | Failure | One image comparison with all reference poses unmatched, no matches, and no candidate poses. |
+| Failure | Either | Quality unavailable for this image; no image comparison. |
+
+In a completed session, every reference success produces exactly one image
+comparison per candidate:
+
+```text
+compared_image_count = reference-successful images
+comparison_coverage = reference-successful images / total reference attempts
+                    = len(image_comparisons) / len(reference.run_result.predictions)
+```
+
+Coverage measures reference evidence availability and is the same for every
+candidate. A successful reference image with zero poses still counts. Candidate
+failures cannot disappear by reducing coverage or the reference pose-miss
+denominator; their reference poses are counted as misses. Reference failures
+reduce coverage and exclude the image's candidate poses from quality scoring.
+For example, if a reference succeeds on two of four images and a candidate
+fails on one of those two, coverage is `50%`, and that image's reference poses
+are all misses.
+
+Deviation and missing-keypoint rates describe matched poses only. No synthetic
+distance penalty is added for a crash or unmatched person. A conditional mean
+can improve when a difficult image crashes, so it must be read alongside pose
+misses, runtime failures, and coverage. A candidate failure on an empty reference
+image adds no pose misses but remains a runtime failure.
+
+Warmup errors and fail-fast prediction errors stop the evaluation. Entirely
+failed models cannot resolve their schema and also stop it. The session never
+returns a completed zero-attempt evaluation; standalone aggregation returns
+`None` for rates with a zero denominator. See [failure policy](evaluation.md).
+
+## Temporal and 3D boundaries
+
+Every image is matched independently. v0.8 performs no temporal tracking,
+cross-frame association, or persistent identity inference. Repeated person IDs
+do not introduce those capabilities.
+
+v0.8 comparison operates in normalized 2D image coordinates. A future 3D mode
+will require a common 3D coordinate-frame and unit contract before Euclidean
+distance is meaningful. No 3D coordinates, depth alignment, camera/world
+transforms, or 3D comparison mode are implemented. The supported config values
+are `image_2d_normalized` and `normalized_euclidean_2d` only.

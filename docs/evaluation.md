@@ -76,16 +76,22 @@ alignment errors also stop it; later candidates do not run and no partial
 `EvaluationResult` is returned. With `continue_on_error=True`, individual
 prediction failures are retained, subject to the successful-output requirement
 for schema resolution. A model with no successful outputs still raises
-`ValueError`; this commit preserves the mandatory schema result contract rather
-than returning quality with an unknown schema. Empty runs likewise cannot
-resolve a schema, so sessions do not return zero-attempt coverage. The standalone
-quality aggregator continues to report `None` for a zero denominator.
+`ValueError`; a schema resolution is mandatory in the result contract. Empty
+runs likewise cannot resolve a schema, so sessions do not return zero-attempt
+coverage. The standalone quality aggregator continues to report `None` for a
+zero denominator.
 
 The result is an `EvaluationResult` containing a reference
 `ModelEvaluationResult` and an ordered tuple of `CandidateEvaluationResult`
 values. Each candidate includes its own run and runtime metrics, schema
-resolution, per-image comparisons, and aggregate quality metrics. Gate evaluation,
+resolution, per-image comparisons, and aggregate quality metrics. The future
+`GateEvaluator` and `ReportWriter` consume this result; gate evaluation and
 report serialization belong outside this component.
+
+The measurements are reference-relative agreement, not ground-truth accuracy.
+The [comparison reference](comparison.md) specifies schema compatibility,
+excluded keypoints, normalized 2D distances, multi-person assignment, and the
+temporal/3D boundaries.
 
 ## CLI summaries
 

@@ -1,8 +1,9 @@
 # Config Reference
 
-PoseDeployGate uses a YAML config file to describe an evaluation run: where
-input data comes from, which named models to configure, where outputs should be written,
-and whether deployment gates are enabled.
+PoseDeployGate uses YAML to configure one reference and N candidates, shared
+input discovery, runner policies, and reference-relative comparison settings.
+Output paths and gate settings are reserved configuration; reports and gates
+are not implemented in the current comparison pipeline.
 
 ## Loading
 
@@ -13,6 +14,8 @@ Configs are loaded with `load_config(config_path)`.
 - Unknown keys are rejected at every schema level.
 - Path values are parsed as `pathlib.Path` values.
 - `data.input_dir` must exist and must be a directory when the config is loaded.
+- Relative paths are interpreted from the process working directory, not the
+  config file's directory. Run repository examples from the repository root.
 
 ## CLI Usage
 
@@ -81,8 +84,8 @@ The full example sets every currently supported section and field:
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
 | `run.name` | No | string | `default-run` | Must not be empty or whitespace. |
-| `run.seed` | No | integer or null | `null` | When set, must be non-negative. |
-| `run.device` | No | `cpu`, `cuda`, or `auto` | `cpu` | Selects the runtime device preference. |
+| `run.seed` | No | integer or null | `null` | Must be non-negative when set. Parsed metadata; the session does not seed adapters or random generators. |
+| `run.device` | No | `cpu`, `cuda`, or `auto` | `cpu` | Parsed preference; the current session does not apply device placement. |
 
 ### `data`
 
@@ -104,7 +107,11 @@ Data source iteration is deterministic:
 as `tuple[ModelConfig, ...]`, preserving configured order. IDs must be non-blank
 and unique by exact string equality. Values are never trimmed or lowercased:
 `model-a` and `Model-A` are distinct IDs. A single model is valid for profiling.
-Models have no roles or comparison semantics at this stage.
+The first model is the reference; the remaining models are candidates. There is
+no separate role field. The reference runs exactly once, followed by each
+candidate sequentially in config order. Every candidate is compared to that
+same reference result, never to another candidate. The same runner policy and
+data-source instance apply to all models.
 The legacy top-level `adapter:` syntax is rejected.
 
 | Field | Required | Type | Default | Notes |
@@ -141,14 +148,35 @@ for the assignment objective, threshold behavior, and missing-point semantics.
 | `comparison.min_pose_shared_fraction` | float | `0.5` | Greater than `0`, at most `1` |
 | `comparison.max_pose_match_distance` | float | `0.15` | From `0` to `1`, inclusive |
 
-Coordinate space and distance metric are explicit so future 3D support can add
-new values without silently changing the meaning of existing configurations.
+`common` compares the exact-name intersection in reference order and requires
+at least `min_common_keypoints` names. `strict` requires identical name tuples,
+including order, regardless of schema labels; it does not apply that minimum.
+Neither mode renames aliases or infers anatomical equivalence. Each output must
+still conform to its own declared schema. `SchemaResolution` records compared,
+reference-only, and candidate-only names; the CLI prints compared counts and
+exclusion counts for both sides. Excluded names are not missing-keypoint events.
+
+Schema compatibility and person matching use separate minima. For example,
+`min_common_keypoints: 1` allows a one-name intersection in common mode, but
+the default `min_pose_shared_keypoints: 3` will still prevent pose matches.
+The shared fraction divides available coordinate pairs by the resolved compared
+name count, not by either model's original schema size.
+
+Distances use `sqrt(dx^2 + dy^2) / sqrt(2)` in the normalized image unit square.
+The pose matching threshold applies to the mean shared-keypoint distance and is
+inclusive. These measurements describe reference agreement, not ground-truth
+accuracy. See [comparison semantics](comparison.md) for assignment and scoring.
+
+v0.8 comparison operates in normalized 2D image coordinates. A future 3D mode
+will require a common 3D coordinate-frame and unit contract before Euclidean
+distance is meaningful. No other coordinate-space or distance-metric values
+are accepted yet.
 
 ### `output`
 
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `output.dir` | No | path | `./artifacts` | Output directory path. It is parsed but not required to exist during config loading. |
+| `output.dir` | No | path | `./artifacts` | Reserved output directory path. Displayed by the CLI; no directory or report is written. |
 
 ### `gates`
 
@@ -170,13 +198,26 @@ Common invalid configs include missing required fields, invalid `run.device`
 values, unknown keys, empty files, malformed YAML, missing `data.input_dir`,
 empty `run.name`, empty `data.file_pattern`, and negative `run.seed`.
 
+Schema incompatibility, changing schemas, missing successful outputs, and
+inconsistent image-ID sets are evaluation-time errors, not config-load checks.
+With `continue_on_error: true`, candidate failures remain runtime failures and
+count as unmatched reference poses on reference-successful images. Reference
+failures reduce `comparison_coverage`, defined as reference-successful images
+divided by all reference attempts. Missing or unexpected image IDs stop the
+evaluation. See [failure and coverage rules](comparison.md#failures-and-comparison-coverage).
+
 ## Example Files
 
 - Minimal example: [config.minimal.yaml](examples/config.minimal.yaml)
 - Multiple models: [config.multiple-models.yaml](examples/config.multiple-models.yaml)
+- Common-mode comparison: [config.comparison.yaml](examples/config.comparison.yaml)
+- Runnable two-model smoke test: [config.comparison-smoke.yaml](examples/config.comparison-smoke.yaml)
+- Runnable strict-mode comparison: [config.comparison-strict.yaml](examples/config.comparison-strict.yaml)
 - Runner example: [config.runner.yaml](examples/config.runner.yaml)
 - Full example: [config.full.yaml](examples/config.full.yaml)
 - Recursive JPEG example: [config.recursive.yaml](examples/config.recursive.yaml)
 - JPEG-only example: [config.jpg-only.yaml](examples/config.jpg-only.yaml)
 
 Data source behavior is documented in [docs/data.md](data.md).
+The [example index](examples/README.md) distinguishes runnable smoke configs
+from templates whose input paths need editing.

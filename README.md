@@ -87,9 +87,29 @@ reporting with synthetic predictions.
 
 ## Current status
 
-The `v0.7.0` development milestone adds a validated normalized adapter output
-contract on top of the v0.6 latency and prediction-error metrics. The runner
-rejects invalid predictions before accepting them as successful results.
+The current development tree implements the v0.8 multi-model reference-comparison
+workflow on top of the v0.7 normalized output contract. Package version metadata
+remains `0.7.0` until release preparation; this is not a v0.8 release announcement.
+Only `DummyAdapter` is registered. Gates, report writing, real model integrations,
+temporal tracking, and 3D comparison remain unimplemented.
+
+The first configured model is the reference; all remaining models are candidates.
+Models execute sequentially, reusing one reference run and preserving candidate
+config order. The default `common` schema mode compares exact shared keypoint
+names and records excluded names; `strict` requires identical name tuples and
+order. Geometric person matching supports multiple people, including reversed
+pose tuple order, without relying on person IDs.
+
+Quality measures agreement with that reference, not ground-truth accuracy.
+Normalized 2D keypoint distance is `sqrt(dx^2 + dy^2) / sqrt(2)`.
+Coverage is reference-successful images divided by all reference attempts.
+Candidate inference and validation failures remain runtime failures and missed
+reference poses. Matched-only deviation must be assessed alongside misses,
+extras, failure rates, coverage, and schema exclusions.
+
+v0.8 comparison operates in normalized 2D image coordinates. A future 3D mode
+will require a common 3D coordinate-frame and unit contract before Euclidean
+distance is meaningful.
 
 Implemented so far:
 
@@ -132,9 +152,11 @@ The normalized output contract is in [docs/output-contract.md](docs/output-contr
 Data source documentation is in [docs/data.md](docs/data.md).
 Runner and timing documentation is in [docs/runner.md](docs/runner.md).
 Metric semantics are documented in [docs/metrics.md](docs/metrics.md).
-Person assignment and missing-keypoint semantics are documented in [docs/comparison.md](docs/comparison.md).
+Reference comparison, person assignment, coverage, and missing-keypoint semantics
+are documented in [docs/comparison.md](docs/comparison.md).
 
-Example configs are in [docs/examples](docs/examples).
+Runnable examples and editable templates are indexed in
+[docs/examples/README.md](docs/examples/README.md).
 
 ## Quick start
 
@@ -199,25 +221,35 @@ CI currently verifies:
 
 ## Roadmap
 
-Implemented through the `v0.7.0` development milestone:
+Implemented through the `v0.8` development milestone:
 
-- adapter interface
-- deterministic dummy adapter
+- adapter interface and deterministic dummy adapter
 - deterministic data source iteration
 - runner with warmup and timing capture
 - configurable prediction failure handling
 - config-driven CLI execution
-- deployment-oriented latency metrics
-- prediction error-rate metrics
-- CLI latency and reliability summary
+- deployment-oriented latency and prediction error-rate metrics
 - normalized output contract and runner validation
 - classified adapter execution and output validation failures
+- sequential evaluation of one reference and N candidates, reusing one reference run
+- common and strict schema resolution with explicit keypoint exclusions
+- multi-person matching independent of pose tuple order
+- reference-relative quality metrics, unmatched poses, and comparison coverage
+- candidate failures retained in runtime errors and missed reference poses
+- compact and verbose CLI summaries for every model
+- end-to-end synthetic multi-model regression tests
 
 Planned next steps:
 
-- schema-matched reference comparison in v0.8
-- gate evaluation
-- report generation and CI artifacts
+- v0.8 release preparation, version update, and release tagging
+- gate evaluation through `GateEvaluator` in v0.9
+- JSON and Markdown reports through `ReportWriter` in v0.9
+- CI artifacts and additional CI checks
+- real model adapter integration
+
+`GateEvaluator` and `ReportWriter` will consume the central `EvaluationResult`;
+gate decisions and report serialization remain outside the result object.
+See the [roadmap](docs/roadmap.md) for later milestones.
 
 ## License
 

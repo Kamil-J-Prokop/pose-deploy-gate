@@ -32,14 +32,14 @@ dependencies in CI.
 
 ## Supported Adapter
 
-The only built-in adapter in the v0.7 development milestone is `dummy`.
+The only registered adapter type in the current v0.8 development tree is `dummy`.
 
 `DummyAdapter` is a deterministic fake adapter used for:
 
 - smoke tests
 - contract tests
 - local CLI validation
-- future pipeline wiring before a real model runtime is added
+- sequential reference/candidate pipeline tests before a real model runtime is added
 
 It always returns the same single-pose prediction shape, with configurable
 `keypoint_confidence` and `pose_confidence` values.
@@ -95,8 +95,8 @@ Each `Keypoint` contains:
 - `confidence`: optional confidence for that keypoint
 - `visible`: optional visibility flag
 
-The [normalized output contract](output-contract.md) defines the rules enforced
-in v0.7:
+The [normalized output contract](output-contract.md) defines the validation
+rules used by the runner and comparison pipeline:
 
 - Coordinates are finite and normalized to `[0, 1]` relative to the original
   input image, with a top-left origin, positive x right, and positive y down.
@@ -115,7 +115,17 @@ values and structure; it does not perform model-specific normalization.
 `DummyAdapter` declares `DUMMY_5_SCHEMA`. `COCO_17_SCHEMA` and custom
 `KeypointSchema` instances are also available. A declared schema defines names
 and order; it does not require every adapter to share one universal taxonomy.
-v0.8 reference comparison will only compare outputs whose schemas match.
+v0.8 comparison defaults to the exact-name intersection in `common` mode;
+`strict` requires identical name tuples and ordering. Shared names must have
+the same anatomical meaning. Excluded names are recorded explicitly, and each
+model must keep its schema stable across successful outputs. See
+[schema resolution](comparison.md#schema-resolution).
+
+Different adapter schema labels alone do not imply incompatibility. Conversely,
+equal keypoint counts do not establish compatibility. Declaring `COCO_17_SCHEMA`
+does not provide a COCO model adapter. `DummyAdapter` generates a fixed five-point
+pose; editing a schema label or supplying a different schema does not generate
+a different taxonomy's predictions.
 
 ## Example Config
 
@@ -166,7 +176,10 @@ The adapter interface and normalized output contract do not yet define:
 - report schema requirements for adapter metadata
 - any production pose-model integration
 
-These remain future work beyond the v0.7 normalized output contract.
+These remain future work beyond the current normalized output contract and
+reference-comparison workflow. Temporal tracking and 3D comparison are also
+outside the current contract. A future 3D mode requires shared coordinate-frame
+and unit semantics; normalized image coordinates do not supply those semantics.
 
 ## Future Adapter Examples
 
@@ -177,6 +190,5 @@ Likely future adapters include:
 - a Torch-based custom checkpoint adapter
 - a remote inference service adapter
 
-Those are examples only. They are not implemented in the v0.7 milestone, and this
-document should not be read as a compatibility promise for any specific
-runtime.
+Those adapters are not implemented or registered. This list is not a
+compatibility promise for any specific runtime.

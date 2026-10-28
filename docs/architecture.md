@@ -8,6 +8,14 @@ comparisons through both the library and CLI. Gate evaluation and report
 writing are not implemented; `gates.enabled` and `output.dir` are config fields
 displayed by the CLI.
 
+The comparison workflow targets v0.8; package version metadata remains at
+`0.7.0` until release preparation. Comparison is reference-relative agreement,
+not ground-truth accuracy. One reference and N candidates run sequentially.
+The first configured model is the reference: it runs exactly once per session
+invocation, and its result is reused for every candidate. Each candidate
+completes its run, metrics, comparison, and aggregation before the next
+candidate starts.
+
 ## Information flow
 
 Solid arrows show data flow; dotted arrows show construction or orchestration.
@@ -47,6 +55,19 @@ structures are frozen dataclasses; collection fields use tuples.
 
 ```mermaid
 flowchart LR
+    EvaluationResult -->|reference| ModelEvaluationResult
+    EvaluationResult -->|"candidates: 0..n"| CandidateEvaluationResult
+    ModelEvaluationResult -->|run_result| RunResult
+    ModelEvaluationResult -->|metrics| MetricsResult
+    CandidateEvaluationResult -->|model| ModelEvaluationResult
+    CandidateEvaluationResult -->|schema_resolution| SchemaResolution
+    CandidateEvaluationResult -->|"image_comparisons: 0..n"| ImageComparisonResult
+    CandidateEvaluationResult -->|quality_metrics| QualityMetrics
+    SchemaResolution -->|reference_schema| KeypointSchema
+    SchemaResolution -->|candidate_schema| KeypointSchema
+    ImageComparisonResult -->|"pose_matches: 0..n"| PoseMatch
+    PoseMatch -->|"keypoints: compared names"| KeypointComparison
+    QualityMetrics -->|"per_keypoint: compared names"| KeypointQualityMetrics
     RunResult -->|warmup| WarmupResult
     RunResult -->|"predictions: 0..n"| PredictionResult
     PredictionResult -->|image| ImageInput
@@ -74,12 +95,46 @@ evaluation. These frozen containers store supplied results without computing or
 cross-validating them. Gate evaluation and report serialization belong to future
 consumers outside the hierarchy.
 
+The future v0.9 `GateEvaluator` and `ReportWriter` will consume `EvaluationResult`.
+They are not implemented or embedded in the result containers. The result
+retains raw prediction failures, runtime metrics, schema exclusions, original
+pose indices, per-image comparisons, and aggregate quality for those consumers.
+
 `evaluation.CandidateEvaluationResult` is separate from the existing
 `comparison.CandidateComparisonResult`, which remains the input to
 `QualityAggregator` with model IDs, schema resolution, and `images`. Callers can
 assemble the evaluation container after aggregating that comparison result.
 `EvaluationSession` performs this orchestration for the library and CLI.
 See [evaluation sessions](evaluation.md).
+
+## Alignment, schemas, and failures
+
+All runners receive the same `FileDataSource` instance. This is a shared
+discovery configuration, not a frozen dataset snapshot: each runner discovers
+files when it starts. Inputs must remain stable, and no content digest is
+computed. `PredictionResult.image.image_id` identifies an attempt independently
+of tuple position. Each candidate's complete ID set must equal the reference's;
+missing, unexpected, duplicate IDs, or successful attempts with no output raise
+`EvaluationConsistencyError`. Comparisons retain reference image order.
+
+After runtime metrics are computed, the session requires a stable schema across
+successful outputs from each model and at least one success per model. The
+schema resolver applies `common` (exact-name intersection, default minimum `3`)
+or `strict` (identical name tuple and order, regardless of schema label).
+Excluded reference and candidate keypoints remain in `SchemaResolution`.
+
+`QualityComparator` uses whole-person assignment and normalized 2D distances;
+candidate tuple order and IDs do not determine matches. A reference-successful
+image with a failed candidate gets an `ImageComparisonResult` with all reference
+poses unmatched. A reference-failed image has no comparison. Consequently,
+coverage is `reference-successful images / total reference attempts`, and
+candidate failures remain in both runtime errors and reference pose misses.
+Matched-only deviation must be interpreted alongside these counts.
+
+Fatal runner, schema, and consistency errors stop later candidates and return
+no partial result. The CLI prints `ERROR:` and returns `2`; a completed evaluation
+returns `0` without gate decisions. See [comparison semantics](comparison.md)
+for thresholds, shared-point requirements, assignment, and rate denominators.
 
 ## Components
 
@@ -94,6 +149,7 @@ Source paths below are relative to `src/pose_deploy_gate/`.
 | `validation/output.py`: `AdapterOutputValidator` | Check schema order, coordinates, visibility, confidence, and per-output person IDs. | `AdapterOutput` | Issue tuple or `AdapterOutputValidationError` |
 | `runner/runner.py`: `Runner` | Run warmup, capture inference timing, validate and classify predictions. | Adapter, data source, timer, validator, policies | `RunResult` or `RunnerExecutionError` |
 | `metrics/engine.py`: `MetricsEngine` | Derive latency statistics and prediction error rates. | `RunResult` | `MetricsResult` |
+| `comparison/schema.py`: `resolve_comparison_schema` | Resolve common or strict keypoint compatibility and retain excluded names. | Two `KeypointSchema` values, mode, minimum common count | `SchemaResolution` or `ValueError` |
 | `evaluation/session.py`: `EvaluationSession` | Run the first model once as reference, then run, measure, and compare each remaining model in order using one shared data source. Used by the CLI and library. | `AppConfig` | `EvaluationResult` |
 | `comparison/matching.py`: `PoseMatcher` | Maximize valid person correspondences, then minimize total matching distance. Used through the session's comparator. | Two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `PoseMatchingResult` |
 | `comparison/comparator.py`: `QualityComparator` | Compare resolved keypoints within matched pose pairs for one image. Used by the session. | Image ID, two validated `AdapterOutput` values, `SchemaResolution`, `ComparisonConfig` | `ImageComparisonResult` |
@@ -120,7 +176,8 @@ Source paths below are relative to `src/pose_deploy_gate/`.
    `MetricsEngine.compute()` uses only entries with `error is None` for latency,
    while all predictions count toward attempts and failures.
 8. The session reuses the reference result for every candidate, validates image-ID
-   correspondence, compares reference-successful images, and aggregates quality.
+   correspondence and stable schemas, compares reference-successful images
+   (recording misses on candidate failure), and aggregates quality.
    It returns one `EvaluationResult` after completing all models in config order.
 9. CLI prints reference and candidate runtime summaries and candidate schema and
    quality summaries. Fatal errors, including schema and consistency errors,
@@ -140,8 +197,26 @@ Source paths below are relative to `src/pose_deploy_gate/`.
   repair or normalize outputs. It runs outside measured prediction latency.
 - **MetricsEngine** derives metrics from `RunResult`; it does not run inference,
   rediscover inputs, or revalidate adapter outputs.
+- **EvaluationSession** owns sequential model execution, reference reuse, image-ID
+  consistency, and assembly of `EvaluationResult`. It delegates runtime metrics,
+  schema resolution, comparison, and aggregation.
+- **Comparison** resolves keypoint names, matches people within an image, and
+  scores matched keypoints. It neither runs adapters nor tracks people over time.
+- **QualityAggregator** combines image results and computes reference-relative
+  rates and deviations; it does not introduce fabricated distance samples for
+  missing poses or failed inference.
 - **CLI** presents results and errors; it does not implement inference or
-  normalization rules.
+  normalization rules. Verbose output reads existing result fields and does not
+  rerun models. Per-keypoint details remain in the result object.
+
+## Coordinate and scope boundaries
+
+v0.8 comparison operates in normalized 2D image coordinates. A future 3D mode
+will require a common 3D coordinate-frame and unit contract before Euclidean
+distance is meaningful. Only `image_2d_normalized` with
+`normalized_euclidean_2d` is accepted. There is no temporal tracking, 3D
+comparison, ground-truth accuracy calculation, parallel model execution,
+deployment gate evaluation, or report serialization in this workflow.
 
 For details, see the [output contract](output-contract.md),
 [configuration](config.md), [runner](runner.md), [metrics](metrics.md), and

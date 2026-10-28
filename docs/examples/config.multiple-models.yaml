@@ -1,3 +1,7 @@
+# Set input_dir and file_pattern for your own input paths.
+# The first entry is the reference, followed by two sequential candidates.
+# All three adapters produce fixed dummy_5 poses; confidence changes do not
+# change geometric quality. Use config.comparison-smoke.yaml for fixture inputs.
 version: 1
 
 data:

@@ -1,5 +1,10 @@
 # v1 requirements
 
+This is a planning document, not a list of current CLI capabilities. The current
+implementation and boundaries are described in [architecture.md](architecture.md),
+[config.md](config.md), and [comparison.md](comparison.md). Gates, report files,
+real model adapters, and several flags below remain future requirements.
+
 ## Requirements format and priorities
 
 Priorities are defined as:
@@ -19,7 +24,7 @@ Priorities are defined as:
 | FR-05 | Execution plan (warmup + timed runs) | P0 | 4 | Config supports warmup iterations and measured iterations; metrics computed only on measured segment; tests validate timing path and counts. |
 | FR-06 | Metric: latency distribution | P0 | 4 | Report includes p50/p95/p99 latency for inference calls; correctness validated with deterministic dummy timings in tests. |
 | FR-07 | Metric: stability/error rate | P0 | 3 | Report includes count and rate of inference failures/exceptions; failures are captured with error summaries; tests simulate failures. |
-| FR-08 | Metric: output schema validation | P0 | 4 | Output validator checks required fields (e.g., N keypoints, coordinate ranges if defined); failures are reported as “invalid output”; tests cover valid/invalid cases. *(Exact schema is currently unspecified; v1 should default to a minimal schema and allow override.)* |
+| FR-08 | Metric: output schema validation | P0 | 4 | Output validator checks the [normalized output contract](output-contract.md), including each output's declared schema and coordinate ranges; validation failures remain distinct from inference failures. Built-in and custom schemas are supported. |
 | FR-09 | Gate evaluation (thresholds) | P0 | 4 | Config defines thresholds (e.g., `p95_latency_ms <= X`, `error_rate <= Y`); tool computes pass/fail per gate and overall; exit code reflects outcome. |
 | FR-10 | Report generation (JSON + Markdown) | P0 | 5 | Tool writes a deterministic JSON report and a human-readable Markdown summary to an output directory; reports include config digest and environment metadata. |
 | FR-11 | CLI UX suitable for CI | P0 | 3 | CLI supports `--config`, `--output-dir`, `--fail-fast` (optional), `--verbose`; examples added to README; command returns stable exit codes. |

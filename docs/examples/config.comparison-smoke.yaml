@@ -21,3 +21,6 @@ models:
 
 runner:
   warmup_iterations: 3
+
+comparison:
+  schema_mode: common

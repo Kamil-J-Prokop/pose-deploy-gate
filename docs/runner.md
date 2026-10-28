@@ -7,10 +7,10 @@ timings, and returns a structured `RunResult`.
 
 ## What the runner does
 
-For a config-driven CLI invocation, PoseDeployGate:
+For each model in a config-driven CLI evaluation, the runner pipeline:
 
-1. loads and validates the config
-2. creates the configured adapter and data source
+1. receives the loaded config's model and runner policies through the factory
+2. uses a separate adapter and the session's shared data-source instance
 3. discovers and materializes the input list in deterministic order
 4. warms up the adapter using the first input
 5. calls the adapter once for every discovered input
@@ -27,6 +27,9 @@ then each candidate sequentially, computing runtime metrics and reference-relati
 quality. The CLI prints each model's P95 latency and failure rate, plus candidate
 schema and quality summaries. Internally, runner timings and metric latency
 values are stored in nanoseconds. See [evaluation sessions](evaluation.md).
+Add `-v` for the full latency distribution, warmup statistics, reliability
+breakdown, and total runner time for every model. Comparison and runtime
+metrics are computed outside each runner's measured inference interval.
 
 ## Runner results and metrics
 
@@ -53,7 +56,7 @@ runner:
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `runner.warmup_iterations` | non-negative integer | `3` | Number of adapter calls made before measured predictions. Use `0` to disable warmup. |
-| `runner.continue_on_error` | boolean | `false` | Whether to record an adapter prediction failure and continue with later inputs. |
+| `runner.continue_on_error` | boolean | `false` | Whether to record inference or output-validation failures and continue with later inputs. |
 
 The minimal config can omit this section and use both defaults. See
 [config.minimal.yaml](examples/config.minimal.yaml) and the explicit runner
@@ -79,6 +82,7 @@ Warmup behavior has these properties:
 - Warmup time is included in `run.total_time_ns`.
 - An `AdapterExecutionError` during warmup always stops the run and is wrapped
   in `RunnerExecutionError`, regardless of `continue_on_error`.
+- Invalid warmup output also raises `RunnerExecutionError` regardless of that policy.
 
 ## Timing capture
 
@@ -127,14 +131,15 @@ Warmup has its own total and is not included in either inference aggregate.
 
 ## Failure policy
 
-The failure policy applies to `AdapterExecutionError` raised during measured
-predictions:
+The failure policy applies to `AdapterExecutionError` and output-validation
+errors during measured predictions:
 
 - With `continue_on_error: false`, the runner stops at the first failed
   prediction and raises `RunnerExecutionError`. No `RunResult` is returned.
 - With `continue_on_error: true`, the runner stores a `PredictionResult` with
-  `output=None`, the error message, and the failed attempt's elapsed time, then
-  continues with the next input.
+  `output=None`, the error message, failure kind (`ADAPTER_EXECUTION` or
+  `OUTPUT_VALIDATION`), and the failed attempt's elapsed time, then continues
+  with the next input.
 
 Recorded failures count toward `run.failed_predictions` and
 `run.measured_inference_time_ns`. They do not count toward
@@ -145,13 +150,20 @@ Warmup failures are always fatal. Configuration, adapter construction, and
 data source failures also remain errors from their respective layers. The CLI
 prints these failures with an `ERROR:` prefix and returns exit code `2`.
 
+The session later uses a candidate failure as all-reference-poses-unmatched on
+a reference-successful image. A reference failure reduces comparison coverage.
+An all-failed model still stops evaluation because its schema cannot be resolved.
+These are [session rules](evaluation.md), separate from a runner's ability to
+return a `RunResult` containing only failures.
+
 ## Intentionally out of scope
 
 The runner deliberately does not provide:
 
 - latency percentiles or error rates directly; `MetricsEngine` derives them
   from `RunResult`
-- pose-output validation or accuracy metrics
+- reference comparison or ground-truth accuracy metrics; the runner does validate
+  output conformance through `AdapterOutputValidator`
 - deployment gate evaluation
 - JSON or Markdown report generation
 - artifact persistence
