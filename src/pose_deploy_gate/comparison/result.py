@@ -55,7 +55,11 @@ class PoseMatch:
 
 @dataclass(frozen=True)
 class ImageComparisonResult:
-    """Matched and unmatched pose indices for one image."""
+    """Matched and unmatched pose indices for one reference-successful image.
+
+    Evaluation records candidate failures with every reference pose unmatched
+    and no candidate poses. The original failure remains in the model run.
+    """
 
     image_id: str
     pose_matches: tuple[PoseMatch, ...]

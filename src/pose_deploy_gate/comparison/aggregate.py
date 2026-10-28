@@ -22,7 +22,13 @@ class KeypointQualityMetrics:
 
 @dataclass(frozen=True)
 class QualityMetrics:
-    """Reference-relative quality metrics for one candidate model."""
+    """Reference-relative quality metrics for one candidate model.
+
+    In an evaluation session, compared_image_count counts reference successes,
+    including images with candidate failures. Coverage divides that count by
+    all reference attempts. Deviation and keypoint rates describe matched poses;
+    candidate failures contribute through reference pose misses instead.
+    """
 
     compared_image_count: int
     comparison_coverage: float | None

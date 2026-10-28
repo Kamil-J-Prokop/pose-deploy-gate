@@ -197,6 +197,14 @@ image comparisons. `comparison_coverage` divides that count by
 the total is omitted, the supplied comparisons are treated as the complete set.
 Rates with a zero denominator and coverage for an empty set are `None`.
 
+`EvaluationSession` supplies one comparison per reference-successful image,
+including images where the candidate failed. For a candidate failure, the
+comparison has no matches or candidate poses and records all reference pose
+indices as unmatched. Reference failures produce no comparison. With the total
+reference attempt count passed as `total_image_count`, session coverage is
+therefore `reference-successful images / total reference attempts`, independent
+of candidate failures. See [evaluation failure handling](evaluation.md).
+
 Pose rates use each model's own pose count:
 
 ```text
