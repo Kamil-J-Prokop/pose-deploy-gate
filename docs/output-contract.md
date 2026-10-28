@@ -1,8 +1,8 @@
 # Normalized Adapter Output Contract
 
-The v0.7 output contract defines the result every adapter must return for one
-original input image. It lets the runner and downstream consumers use the same
-coordinate, schema, confidence, and person rules across runtimes.
+The normalized output contract introduced in v0.7 remains the per-image adapter
+contract for v0.8 comparison. It lets the runner and downstream consumers use
+the same coordinate, schema, confidence, and person rules across runtimes.
 
 ## Coordinate System
 
@@ -59,8 +59,10 @@ For a schema `("nose", "left_shoulder", "right_shoulder")`:
 | `("nose", "left_shoulder", "left_shoulder")` | No: duplicate and mismatched names. |
 
 The built-in schemas are `DUMMY_5_SCHEMA` and `COCO_17_SCHEMA`. Adapters can
-declare custom schemas; v0.7 does not require every runtime to use one universal
-body-keypoint taxonomy.
+declare custom schemas; there is no required universal body-keypoint taxonomy.
+This validation rule concerns each output's own schema. It does not require
+reference and candidate schemas to be identical: default `common` comparison
+resolves shared names, while `strict` requires identical name tuples and order.
 
 ## Confidence
 
@@ -75,8 +77,8 @@ have the same statistical meaning.
 ## Person Semantics
 
 `AdapterOutput.poses` contains zero or more poses. An empty tuple is valid when
-no people are detected. Multi-person outputs are supported; v0.7 does not
-require exactly one person.
+no people are detected. Both output validation and v0.8 comparison support
+multiple people; neither requires exactly one person.
 
 `PosePrediction.person_id` is optional:
 
@@ -89,6 +91,11 @@ IDs can repeat across images or inference calls. The same person can therefore
 keep the same ID across a sequence. Validation does not enforce global ID
 uniqueness or perform tracking. IDs are compared exactly as supplied; the
 validator does not trim or normalize them.
+
+For reference comparison, people are matched geometrically within each image,
+independently of pose tuple order and supplied person IDs. IDs only support an
+advisory agreement flag in the standalone matching result. There is no temporal
+tracking or cross-frame identity matching.
 
 ## Adapter Responsibility
 
@@ -181,13 +188,47 @@ without dumping individual issues:
 Fail-fast CLI errors include the image ID, issue path, code, and explanation,
 and return exit code `2`.
 
-## Future Reference Comparison
+## v0.8 Reference Comparison
 
-v0.8 reference comparison will only compare outputs whose schemas match.
-Adapters must declare their keypoint meaning and deterministic ordering rather
-than relying on consumers to infer compatibility from the number of points.
-The first comparison implementation may restrict itself to single-person
-outputs; the generic output contract continues to support zero or more poses.
+`EvaluationSession` uses the first configured model as its reference and all
+remaining models as candidates. Models run sequentially, with the reference
+run reused for every candidate. Predictions align by image ID, not tuple
+position; missing, extra, or duplicate IDs are consistency errors.
+
+`common` mode compares the intersection of exact keypoint names in reference
+order, requiring at least `min_common_keypoints` (default `3`). Names unique to
+one model are recorded as exclusions and do not affect matching or keypoint
+rates. `strict` mode requires identical names and ordering; schema labels may
+differ. Adapters must supply consistent anatomical meanings for shared names;
+the resolver does not translate aliases or infer meaning from point counts.
+
+Within each image, matching maximizes eligible person correspondences and then
+minimizes the sum of accepted pair costs. Each cost is the mean shared-keypoint
+distance, where a keypoint distance is
+`sqrt((reference.x - candidate.x)^2 + (reference.y - candidate.y)^2) / sqrt(2)`.
+Unmatched reference and candidate poses remain explicit. Reversed person output
+order can therefore have zero deviation when the coordinates agree.
+
+On a reference-successful image, a candidate inference or validation failure
+remains a runtime failure and leaves all reference poses unmatched. Reference
+failures make quality unavailable for those images. Coverage is
+`reference-successful images / total reference attempts`. Candidate failures
+cannot disappear from pose-miss statistics by being omitted. Deviation and
+missing-keypoint rates remain conditional on matched poses; read them with
+misses and runtime failures. Each model must have a stable schema and at least
+one successful output, or evaluation stops without a partial result.
+
+Comparison measures reference-relative agreement, not ground-truth accuracy.
+The reference's mistakes are not independently detected. Full matching,
+exclusion, failure, and metric semantics are documented in
+[multi-model reference comparison](comparison.md).
+
+## 3D Boundary
+
+v0.8 comparison operates in normalized 2D image coordinates. A future 3D mode
+will require a common 3D coordinate-frame and unit contract before Euclidean
+distance is meaningful. Depth, 3D coordinates, physical units, and camera/world
+frame conversion are not part of the current adapter or comparison contract.
 
 See also the [adapter guide](adapters.md), [runner guide](runner.md), and
 [metric semantics](metrics.md).

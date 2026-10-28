@@ -25,40 +25,90 @@ The project focuses on closing the gap between research-grade metrics and produc
 
 ```
 PoseDeployGate config validation successful.
-Config path: /home/kamil/workspace/pose-deploy-gate/docs/examples/config.runner.yaml
+Config path: /path/to/config.comparison.yaml
 Run name: default-run
-Input directory: /home/kamil/workspace/pose-deploy-gate
-Adapter: dummy
+Input directory: /path/to/inputs
 Output directory: artifacts
 Gates enabled: False
-PoseDeployGate run completed.
-Input files: 6
-Warmup iterations: 3
+PoseDeployGate evaluation completed.
 
-Latency:
-  Samples: 6
-  Min: 0.030 ms
-  Mean: 0.038 ms
-  P50: 0.034 ms
-  P95: 0.059 ms
-  P99: 0.059 ms
-  Max: 0.059 ms
-
-Reliability:
-  Successful predictions: 6
+Reference: production
+  Images: 3
+  P95 latency: 0.041 ms
+  Failure rate: 0.00%
+  Successful predictions: 3
   Failed predictions: 0
     Adapter execution failures: 0
     Output validation failures: 0
-  Error rate: 0.00%
 
-Total runner time: 0.832 ms
+Candidate: candidate
+  Images: 3
+  P95 latency: 0.025 ms
+  Failure rate: 0.00%
+  Successful predictions: 3
+  Failed predictions: 0
+    Adapter execution failures: 0
+    Output validation failures: 0
+
+  Schema comparison:
+    Reference: dummy_5
+    Candidate: dummy_5
+    Compared keypoints: 5/5 reference, 5/5 candidate
+    Reference-only keypoints excluded: 0
+    Candidate-only keypoints excluded: 0
+
+  Quality:
+    Comparison coverage: 100.00%
+    Matched poses: 3
+    Missed reference poses: 0 (0.00%)
+    Extra candidate poses: 0
+    Mean keypoint deviation: 0.00%
+    P95 keypoint deviation: 0.00%
+    Missing keypoint rate: 0.00%
+
 ```
+
+Timings above are illustrative. The first configured model is the reference;
+each remaining candidate gets its own section in config order. See the
+[multi-model config example](docs/examples/config.comparison.yaml) and
+[evaluation semantics](docs/evaluation.md).
+
+For detailed runtime statistics on every model, add `-v` (`--verbose` and
+`-verbose` are also accepted). Run this two-model smoke test from the repository
+root:
+
+```bash
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison-smoke.yaml -v
+```
+
+This uses two separate dummy adapters and repository fixture paths. Real model
+adapters are not registered yet; the smoke test exercises evaluation and CLI
+reporting with synthetic predictions.
 
 ## Current status
 
-The `v0.7.0` development milestone adds a validated normalized adapter output
-contract on top of the v0.6 latency and prediction-error metrics. The runner
-rejects invalid predictions before accepting them as successful results.
+The current development tree implements the v0.8 multi-model reference-comparison
+workflow on top of the v0.7 normalized output contract. 
+Only `DummyAdapter` is registered. Gates, report writing, real model integrations,
+temporal tracking, and 3D comparison remain unimplemented.
+
+The first configured model is the reference; all remaining models are candidates.
+Models execute sequentially, reusing one reference run and preserving candidate
+config order. The default `common` schema mode compares exact shared keypoint
+names and records excluded names; `strict` requires identical name tuples and
+order. Geometric person matching supports multiple people, including reversed
+pose tuple order, without relying on person IDs.
+
+Quality measures agreement with that reference, not ground-truth accuracy.
+Normalized 2D keypoint distance is `sqrt(dx^2 + dy^2) / sqrt(2)`.
+Coverage is reference-successful images divided by all reference attempts.
+Candidate inference and validation failures remain runtime failures and missed
+reference poses. Matched-only deviation must be assessed alongside misses,
+extras, failure rates, coverage, and schema exclusions.
+
+v0.8 comparison operates in normalized 2D image coordinates. A future 3D mode
+will require a common 3D coordinate-frame and unit contract before Euclidean
+distance is meaningful.
 
 Implemented so far:
 
@@ -82,11 +132,12 @@ Implemented so far:
 - monotonic per-prediction and total runner timing capture
 - deployment-oriented minimum, mean, P50, P95, P99, and maximum latency metrics
 - prediction success, failure, and error-rate metrics
-- CLI run summaries with latency and reliability metrics
+- sequential multi-model CLI summaries with runtime metrics, schema exclusions, and aggregate quality
 - declared keypoint schemas with exact name and ordering validation
 - normalized coordinate, missing-keypoint, confidence, and person-ID validation
 - validation of every warmup output and measured prediction
 - separate adapter execution and output validation failure counts in the CLI
+- library API for optimal multi-person matching with configurable shared-point and distance requirements
 
 Validation failures count toward error rate and are excluded from latency
 samples. Inference timing is captured before validation. Adapters are
@@ -100,8 +151,11 @@ The normalized output contract is in [docs/output-contract.md](docs/output-contr
 Data source documentation is in [docs/data.md](docs/data.md).
 Runner and timing documentation is in [docs/runner.md](docs/runner.md).
 Metric semantics are documented in [docs/metrics.md](docs/metrics.md).
+Reference comparison, person assignment, coverage, and missing-keypoint semantics
+are documented in [docs/comparison.md](docs/comparison.md).
 
-Example configs are in [docs/examples](docs/examples).
+Runnable examples and editable templates are indexed in
+[docs/examples/README.md](docs/examples/README.md).
 
 ## Quick start
 
@@ -115,9 +169,8 @@ Run the CLI:
 
 ```bash
 uv run python -m pose_deploy_gate --version
-uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml
-uv run python -m pose_deploy_gate --config docs/examples/config.runner.yaml
 uv run python -m pose_deploy_gate --config docs/examples/config.minimal.yaml --list-inputs
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison-smoke.yaml -v
 uv run python -m pose_deploy_gate --input .
 ```
 
@@ -167,25 +220,35 @@ CI currently verifies:
 
 ## Roadmap
 
-Implemented through the `v0.7.0` development milestone:
+Implemented through the `v0.8` development milestone:
 
-- adapter interface
-- deterministic dummy adapter
+- adapter interface and deterministic dummy adapter
 - deterministic data source iteration
 - runner with warmup and timing capture
 - configurable prediction failure handling
 - config-driven CLI execution
-- deployment-oriented latency metrics
-- prediction error-rate metrics
-- CLI latency and reliability summary
+- deployment-oriented latency and prediction error-rate metrics
 - normalized output contract and runner validation
 - classified adapter execution and output validation failures
+- sequential evaluation of one reference and N candidates, reusing one reference run
+- common and strict schema resolution with explicit keypoint exclusions
+- multi-person matching independent of pose tuple order
+- reference-relative quality metrics, unmatched poses, and comparison coverage
+- candidate failures retained in runtime errors and missed reference poses
+- compact and verbose CLI summaries for every model
+- end-to-end synthetic multi-model regression tests
 
 Planned next steps:
 
-- schema-matched reference comparison in v0.8
-- gate evaluation
-- report generation and CI artifacts
+- v0.8 release preparation, version update, and release tagging
+- gate evaluation through `GateEvaluator` in v0.9
+- JSON and Markdown reports through `ReportWriter` in v0.9
+- CI artifacts and additional CI checks
+- real model adapter integration
+
+`GateEvaluator` and `ReportWriter` will consume the central `EvaluationResult`;
+gate decisions and report serialization remain outside the result object.
+See the [roadmap](docs/roadmap.md) for later milestones.
 
 ## License
 

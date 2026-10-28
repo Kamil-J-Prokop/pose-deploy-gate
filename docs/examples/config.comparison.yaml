@@ -1,0 +1,31 @@
+# Replace "." with the directory that contains your evaluation JPEG inputs.
+# The first model is the reference. Remaining models run sequentially in order.
+# DummyAdapter produces fixed poses; replace it with real adapters when supported.
+# Both candidates currently share dummy_5 with the reference, so exclusions are
+# zero. See docs/comparison.md for common-mode semantics with different schemas.
+version: 1
+
+data:
+  input_dir: "."
+  file_pattern: "*.jpg"
+
+models:
+  - id: production
+    adapter:
+      type: dummy
+  - id: candidate-z
+    adapter:
+      type: dummy
+      params:
+        pose_confidence: 0.8
+  - id: candidate-a
+    adapter:
+      type: dummy
+      params:
+        pose_confidence: 0.6
+
+comparison:
+  schema_mode: common
+  coordinate_space: image_2d_normalized
+  distance_metric: normalized_euclidean_2d
+  min_common_keypoints: 3

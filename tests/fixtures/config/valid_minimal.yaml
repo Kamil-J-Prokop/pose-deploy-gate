@@ -3,8 +3,10 @@ version: 1
 data:
   input_dir: "./data"
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
 
 runner:
   warmup_iterations: 3

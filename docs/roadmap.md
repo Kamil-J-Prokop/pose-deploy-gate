@@ -7,7 +7,7 @@
 | 0.5.0 | Runner with warmup + timing capture | Done - 11.09.2026 |
 | 0.6.0 | MetricsEngine (latency + error rate) | Done - 23.09.2026 |
 | 0.7.0 | Output validator + schema defaults | Done - 07.10.2026 |
-| 0.8.0 | GateEngine + exit codes + CLI polish | In progress |
-| 0.9.0 | ReportWriter (JSON + MD) + artifacts structure | Planned|
+| 0.8.0 | Sequential multi-model reference comparison, common/strict schemas, multi-person matching, quality/coverage metrics, and CLI summaries | Done - 28.10.2026 |
+| 0.9.0 | GateEvaluator + ReportWriter (JSON + MD), consuming EvaluationResult | In Progress |
 | 0.10.0 | CI upgrades: coverage + build check + upload artifacts + job summary | Planned |
 | 1.0.0 | MVP release - Docs completion + release criteria met + tag v1.0.0 | Planned |

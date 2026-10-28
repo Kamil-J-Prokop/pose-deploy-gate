@@ -5,5 +5,7 @@ version: 1
 data:
   input_dir: "."
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"

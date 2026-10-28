@@ -1,27 +1,39 @@
 # Full config example for docs/config.md.
 # Replace "." with the directory that contains your evaluation inputs.
+# The single model is the reference; no candidate quality section is produced.
 version: 1
 
 run:
   name: "example-run"
-  seed: 123
-  device: "cpu"
+  seed: 123  # Parsed metadata; random generators are not seeded by the session.
+  device: "cpu"  # Parsed preference; the session does not apply device placement.
 
 data:
   input_dir: "."
   file_pattern: "*.jpg"
   recursive: false
 
-adapter:
-  type: "dummy"
-  params: {}
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
+      params: {}
 
 output:
-  dir: "./artifacts"
+  dir: "./artifacts"  # Reserved; the current workflow does not write reports.
 
 gates:
-  enabled: false
+  enabled: false  # Reserved; deployment gates are not evaluated yet.
 
 runner:
   warmup_iterations: 3
   continue_on_error: false
+
+comparison:
+  schema_mode: common
+  coordinate_space: image_2d_normalized
+  distance_metric: normalized_euclidean_2d
+  min_common_keypoints: 3
+  min_pose_shared_keypoints: 3
+  min_pose_shared_fraction: 0.5
+  max_pose_match_distance: 0.15

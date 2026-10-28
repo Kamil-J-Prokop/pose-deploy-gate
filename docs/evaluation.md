@@ -1,0 +1,141 @@
+# Evaluation sessions
+
+`EvaluationSession` is the library API for sequential multi-model evaluation:
+
+```python
+from pathlib import Path
+
+from pose_deploy_gate.config import load_config
+from pose_deploy_gate.evaluation import EvaluationSession
+
+config = load_config(Path("config.yaml"))
+result = EvaluationSession(config).run()
+```
+
+The first entry in `config.models` is the reference. Each call to `run()` creates
+one data-source instance and fresh model adapters and runners using the configured
+runner policies. It runs the reference exactly once and computes its runtime
+metrics. Then, for each remaining model in config order, it runs the candidate,
+computes its runtime metrics, resolves schemas, compares outputs, and aggregates
+quality before starting the next model. A single-model config returns an empty
+candidate tuple. Repeated calls perform new evaluations without caching runs.
+
+All runners receive the same data-source object. Each runner discovers inputs
+when it starts, so the input directory should remain stable throughout the
+session. Image IDs must be unique within each run. Every candidate must have
+exactly the same image-ID set as the reference, including failed predictions.
+Duplicate, missing, or unexpected IDs raise `EvaluationConsistencyError` (a
+`ValueError` subclass), identifying the model and offending IDs. A prediction
+marked successful without an output raises the same error. Alignment never
+uses positional `zip()` and never silently drops an unmatched ID. These checks
+detect changes to the ID set; they do not verify file content stability.
+
+Schema resolution requires at least one successful output from every model,
+including the reference. Successful outputs must have the same `KeypointSchema`
+throughout that model's run. Missing or changing schemas raise `ValueError`;
+incompatible model schemas propagate the schema resolver's `ValueError`.
+The session does not guess schemas from failed predictions or adapter attributes.
+
+Predictions join by `prediction.image.image_id`, preserving reference prediction
+order regardless of candidate tuple order:
+
+| Reference | Candidate | Quality result for this image |
+| --- | --- | --- |
+| Success | Success | Normal pose matching and keypoint comparison. |
+| Success | Failure | One image comparison with every reference pose unmatched, no matches, and no candidate poses. |
+| Failure | Success or failure | Quality unavailable; no image comparison. |
+
+Candidate failures remain unchanged in `RunResult` with `output=None`, their
+error and failure kind, and their contribution to runtime error metrics. The
+session constructs the unmatched-pose comparison directly rather than inventing
+a successful empty adapter output. A successful reference output with no poses
+still contributes an image comparison, including when the candidate fails.
+
+```text
+compared_image_count = number of reference-successful images
+comparison_coverage = reference-successful images / total reference attempts
+                    = len(image_comparisons) / len(reference.run_result.predictions)
+```
+
+Thus coverage is the same across candidates and measures availability of
+reference evidence. Candidate crashes cannot reduce its numerator or disappear
+from the reference pose-miss denominator. They increase the missed-pose count
+by the number of poses in that reference output. Reference failures reduce
+coverage and exclude that image's candidate poses from quality scoring.
+
+Deviation statistics and keypoint missing rates remain conditional on matched
+poses; a crash adds no synthetic deviation or keypoint sample. A matched-only
+mean can improve when a difficult image crashes, so consumers must assess it
+alongside pose-miss rates, runtime failures, and coverage. For example, if the
+reference succeeds on two of four images and the candidate fails on one of
+those two, coverage is `2/4`, and that failed image's reference poses are misses.
+Runtime metrics still include every prediction's success or failure.
+
+Runner fail-fast and warmup errors propagate and stop the session. Schema and
+alignment errors also stop it; later candidates do not run and no partial
+`EvaluationResult` is returned. With `continue_on_error=True`, individual
+prediction failures are retained, subject to the successful-output requirement
+for schema resolution. A model with no successful outputs still raises
+`ValueError`; a schema resolution is mandatory in the result contract. Empty
+runs likewise cannot resolve a schema, so sessions do not return zero-attempt
+coverage. The standalone quality aggregator continues to report `None` for a
+zero denominator.
+
+The result is an `EvaluationResult` containing a reference
+`ModelEvaluationResult` and an ordered tuple of `CandidateEvaluationResult`
+values. Each candidate includes its own run and runtime metrics, schema
+resolution, per-image comparisons, and aggregate quality metrics. The future
+`GateEvaluator` and `ReportWriter` consume this result; gate evaluation and
+report serialization belong outside this component.
+
+The measurements are reference-relative agreement, not ground-truth accuracy.
+The [comparison reference](comparison.md) specifies schema compatibility,
+excluded keypoints, normalized 2D distances, multi-person assignment, and the
+temporal/3D boundaries.
+
+## CLI summaries
+
+```bash
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison.yaml
+```
+
+All config invocations use `EvaluationSession`. The CLI prints one reference
+summary, then one candidate section in config order. Each model shows its image
+attempt count, P95 latency, failure rate, and success/failure counts, including
+adapter execution and output validation failures. Each candidate also shows
+both schema names, compared keypoint counts against both schemas, exclusion
+counts for both sides, coverage, matched/missed/extra poses, mean and P95 keypoint
+deviation, and the matched-pose missing-keypoint rate. Per-keypoint details and
+individual recorded error messages are omitted. `--list-inputs` lists reference
+input paths once, after the complete summary.
+
+Use `-v`, `--verbose`, or `-verbose` to add detailed runtime statistics for every
+model: adapter type, actual warmup iterations and time, latency sample count,
+minimum, mean, P50, P95, P99, maximum, reliability counts and error rate, and total
+runner time. These values come from existing results; verbose mode does not run
+models again. Per-keypoint details remain omitted.
+
+A two-model smoke run is available from the repository root:
+
+```bash
+uv run python -m pose_deploy_gate --config docs/examples/config.comparison-smoke.yaml -v
+```
+
+It compares two separate `DummyAdapter` instances using repository fixture
+paths. Only the `dummy` adapter type is currently registered. Dummy outputs are
+synthetic and independent of file contents, so this verifies orchestration and
+reporting rather than real model inference or accuracy. To evaluate your own
+input paths with dummy adapters, edit `data.input_dir` in the example.
+
+Latency uses milliseconds with three decimal places. Rates and normalized
+deviations are multiplied by 100 and printed with two decimal places. A deviation
+percentage expresses normalized coordinate distance, not accuracy. Undefined
+quality values appear as `n/a`; real zero values appear as `0.00%`. These rounded
+summaries do not replace the full-precision metrics in the result objects.
+
+A completed evaluation returns exit code `0`, including evaluations with recorded
+prediction failures. Configuration, adapter, data-source, runner, schema, and
+consistency errors print `ERROR:` and return `2`, without a completed or partial
+model summary. An all-failed single-model config now follows the same schema
+requirement as multi-model evaluation and returns `2`. Gates and reports remain
+unimplemented; `gates.enabled` and `output.dir` are displayed configuration only.

@@ -1,0 +1,28 @@
+# Run from the repository root using synthetic dummy outputs and fixture paths.
+# Strict comparison requires identical keypoint names and order; both models
+# declare dummy_5. Changing schema_mode to common produces the same comparison.
+version: 1
+
+data:
+  input_dir: tests/fixtures/data/images
+  file_pattern: "*.jpg"
+  recursive: true
+
+models:
+  - id: production
+    adapter:
+      type: dummy
+  - id: candidate
+    adapter:
+      type: dummy
+      params:
+        pose_confidence: 0.8
+
+comparison:
+  schema_mode: strict
+  coordinate_space: image_2d_normalized
+  distance_metric: normalized_euclidean_2d
+  min_common_keypoints: 3
+  min_pose_shared_keypoints: 3
+  min_pose_shared_fraction: 0.5
+  max_pose_match_distance: 0.15

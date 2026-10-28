@@ -1,7 +1,7 @@
 """Public exports for the runner layer."""
 
 from .exceptions import RunnerError, RunnerExecutionError
-from .factory import create_runner
+from .factory import create_model_runner
 from .result import (
     PredictionFailureKind,
     PredictionResult,
@@ -22,6 +22,6 @@ __all__ = [
     "RunnerExecutionError",
     "Timer",
     "WarmupResult",
-    "create_runner",
+    "create_model_runner",
     "ns_to_ms",
 ]

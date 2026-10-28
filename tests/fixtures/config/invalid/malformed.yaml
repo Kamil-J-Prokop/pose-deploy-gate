@@ -2,6 +2,8 @@
 version: 1
 data:
   input_dir: "./data"
-adapter:
-  type: "dummy"
-  params: [unclosed
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
+      params: [unclosed

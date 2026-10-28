@@ -6,5 +6,7 @@ data:
   input_dir: "./images"
   file_pattern: "*.jpg"
 
-adapter:
-  type: "dummy"
+models:
+  - id: dummy
+    adapter:
+      type: "dummy"
